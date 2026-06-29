@@ -1,0 +1,85 @@
+package com.paw.ddasoom.common.security;
+
+import java.util.Arrays;
+import java.util.Collections;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+  private final CorsProperties corsProperties;
+
+  public SecurityConfig(CorsProperties corsProperties) {
+    this.corsProperties = corsProperties;
+  }
+
+  //암호화 설정
+  @Bean
+  public BCryptPasswordEncoder bCryptPasswordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+  @Bean
+  public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http
+        //CORS 설정 - 보안 필터에서 허용
+        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+        .csrf(csrf -> csrf.disable())
+        //경로별 인가 작업
+                .authorizeHttpRequests(authorize -> authorize
+                        // 🔽 여기에 로그인 없이 접근을 허용할 URL 경로 목록을 작성합니다.
+                        .requestMatchers(
+                                SecurityConstants.PUBLIC_URIS
+                        ).permitAll() // 위에 명시된 경로들은 모두 허용
+
+                        // 여기에 관리자만 접근을 허용할 URL 경로 목록 작성
+                        .requestMatchers(
+                                "/api/admin/**"
+                        ).hasAnyRole("ADMIN")  // 관리자(ADMIN)
+
+                        // 🔽 위에서 허용한 경로 외의 나머지 모든 요청은 반드시 인증(로그인)을 거쳐야 합니다.
+                        .anyRequest().authenticated()
+                      )
+                      .formLogin(auth -> auth.disable())
+                .httpBasic(auth -> auth.disable())
+                .logout(logout -> logout.disable())
+
+                //Todo. 필터등록
+                
+
+                //세션 설정
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+
+        return http.build();
+  }
+  
+
+      // 보안 필터에서 시큐리티에서 CORS 설정 처리
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        configuration.setAllowedOrigins(Arrays.asList(corsProperties.getAllowedOrigins().split(",")));
+        configuration.setAllowedMethods(Collections.singletonList("*"));
+        configuration.setAllowCredentials(true);
+        configuration.setAllowedHeaders(Collections.singletonList("*"));
+        configuration.setMaxAge(3600L);
+        configuration.setExposedHeaders(Collections.singletonList("Authorization"));
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration); // 모든 URL에 적용
+        return source;
+    }
+}
