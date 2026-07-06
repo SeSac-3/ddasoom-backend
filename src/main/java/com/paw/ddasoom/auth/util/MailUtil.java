@@ -1,4 +1,4 @@
-package com.paw.ddasoom.common.util;
+package com.paw.ddasoom.auth.util;
 
 import java.nio.charset.StandardCharsets;
 
@@ -26,7 +26,7 @@ public class MailUtil {
   @Value("${spring.mail.username}")
   private String fromAddress;
 
-  @Value("${ddasoom.service-url:http:localhost:8080}")
+  @Value("${ddasoom.service-url:http://localhost:8080}")
   private String serviceUrl;
 
   public void sendAuthCodeEmail(String to, String code) {
