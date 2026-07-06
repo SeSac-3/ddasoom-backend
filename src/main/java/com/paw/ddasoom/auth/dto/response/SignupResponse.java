@@ -1,4 +1,4 @@
-package com.paw.ddasoom.member.dto.response;
+package com.paw.ddasoom.auth.dto.response;
 
 import com.paw.ddasoom.member.domain.Member;
 import com.paw.ddasoom.member.domain.Role;

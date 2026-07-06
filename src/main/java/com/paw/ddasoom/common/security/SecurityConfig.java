@@ -8,27 +8,19 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import lombok.RequiredArgsConstructor;
+
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
   private final CorsProperties corsProperties;
-
-  public SecurityConfig(CorsProperties corsProperties) {
-    this.corsProperties = corsProperties;
-  }
-
-  //암호화 설정
-  @Bean
-  public BCryptPasswordEncoder bCryptPasswordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -46,12 +38,12 @@ public class SecurityConfig {
                         // 여기에 관리자만 접근을 허용할 URL 경로 목록 작성
                         .requestMatchers(
                                 "/api/admin/**"
-                        ).hasAnyRole("ADMIN")  // 관리자(ADMIN)
+                        ).hasRole("ADMIN")  // 관리자(ADMIN)
 
                         // 🔽 위에서 허용한 경로 외의 나머지 모든 요청은 반드시 인증(로그인)을 거쳐야 합니다.
                         .anyRequest().authenticated()
                       )
-                      .formLogin(auth -> auth.disable())
+                .formLogin(auth -> auth.disable())
                 .httpBasic(auth -> auth.disable())
                 .logout(logout -> logout.disable())
 
