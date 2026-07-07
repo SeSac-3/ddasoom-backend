@@ -19,7 +19,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "member_socials", uniqueConstraints = {
+@Table(name = "member_social", uniqueConstraints = {
     @UniqueConstraint(name = "uk_member_socials_provider", columnNames = {"provider", "provider_id"}) // 복합 유니크 키
 })
 @Getter

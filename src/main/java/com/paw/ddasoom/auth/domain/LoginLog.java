@@ -21,7 +21,7 @@ import lombok.NoArgsConstructor;
 
 /** 로그인 이력 — 불변 로그 (ip/userAgent는 보안 감사 기능 도입 시 추가) */
 @Entity
-@Table(name = "login_logs")
+@Table(name = "login_log")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class LoginLog {
