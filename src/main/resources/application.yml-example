@@ -72,3 +72,12 @@ logging:
     # SQL 파라미터 바인딩 및 결과 값(Descriptor)을 완벽하게 추적하기 위한 TRACE 설정
     org.hibernate.type.descriptor.sql: trace
     org.hibernate.orm.results.loading: trace
+
+
+# [7. JWT 설정]
+ddasoom:
+  jwt:
+    secret: # Base64 인코딩된 256bit 이상 키 (openssl rand -base64 64 로 생성)
+    access-token-validity: 1800000     # AT 30분 (ms) — SECURITY-FLOW.md 기준
+    refresh-token-validity: 1209600000 # RT 14일 (ms)
+  cookie-secure: false                 # 운영 배포 시 true (HTTPS 전용)
