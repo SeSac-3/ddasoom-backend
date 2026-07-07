@@ -9,6 +9,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -21,6 +22,9 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfig {
 
   private final CorsProperties corsProperties;
+  private final AuthJwtTokenFilter authJwtTokenFilter;
+  private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
+  private final CustomAccessDeniedHandler customAccessDeniedHandler;
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -47,7 +51,13 @@ public class SecurityConfig {
                 .httpBasic(auth -> auth.disable())
                 .logout(logout -> logout.disable())
 
-                //Todo. 필터등록
+                // JWT 인증 필터 등록 (UsernamePasswordAuthenticationFilter 앞)
+                .addFilterBefore(authJwtTokenFilter, UsernamePasswordAuthenticationFilter.class)
+
+                // 인증/인가 실패 응답 통일 — 필터와 반드시 세트 (없으면 기본 HTML/리다이렉트)
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(customAuthenticationEntryPoint)   // 401
+                        .accessDeniedHandler(customAccessDeniedHandler))            // 403
                 
 
                 //세션 설정
