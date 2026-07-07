@@ -107,7 +107,7 @@ com.paw.ddasoom
 | 문서 | 내용 |
 |------|------|
 | [백엔드 코드 컨벤션](./docs/CONVENTIONS.md) | 패키지 구조, 네이밍, 예외 처리, API 공통 규격 등 코드 작성 규칙 |
-| [Security Flow](./docs/SECURITY-FLOW.md) | 인증/인가 흐름, 컨트롤러에서 로그인 회원 정보 꺼내는 방법 |
+| [Security Flow](docs/SECURITY_FLOW.md) | 인증/인가 흐름, 컨트롤러에서 로그인 회원 정보 꺼내는 방법 |
 
 ---
 
