@@ -25,4 +25,24 @@ public class PostTest {
         assertThat(post.getCommentCount()).isEqualTo(0);
     }
 
+    // 조회 수 테스트
+    @Test
+    @DisplayName("조회 수가 증가한다")
+    void viewCountTest() {
+
+        // given
+        Post post = Post.builder()
+                .title("테스트 제목")
+                .content("테스트 내용")
+                .build();
+
+        // when
+        post.increaseViewCount();
+        post.increaseViewCount();
+        post.increaseViewCount();
+
+        // then
+        assertThat(post.getViewCount()).isEqualTo(3);
+    }
+
 }
