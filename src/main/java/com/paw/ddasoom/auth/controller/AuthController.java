@@ -7,15 +7,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.paw.ddasoom.auth.dto.request.AuthCodeSendRequest;
 import com.paw.ddasoom.auth.dto.request.AuthCodeVerifyRequest;
 import com.paw.ddasoom.auth.dto.request.LoginRequest;
+import com.paw.ddasoom.auth.dto.request.PasswordResetEmailRequest;
+import com.paw.ddasoom.auth.dto.request.PasswordResetRequest;
 import com.paw.ddasoom.auth.dto.request.SignupRequest;
 import com.paw.ddasoom.auth.dto.response.LoginResponse;
 import com.paw.ddasoom.auth.dto.response.SignupResponse;
@@ -109,5 +113,35 @@ public class AuthController {
                 .body(ApiResponse.success("로그아웃 되었습니다."));
     }
 
+    /** 비밀번호 재설정 메일 발송 — 이메일 존재 여부와 무관하게 동일 응답 */
+    @PostMapping("/password/reset-request")
+    public ResponseEntity<ApiResponse<Void>> sendPasswordResetLink(
+            @Valid @RequestBody PasswordResetEmailRequest request) {
+        authService.sendPasswordResetLink(request.getEmail());
+        return ResponseEntity.ok(ApiResponse.success(
+                "비밀번호 재설정 메일을 발송했습니다. 메일함을 확인해 주세요."));
+    }
+
+    /** 토큰으로 비밀번호 재설정 — 성공 시 재로그인 필요 */
+    @PostMapping("/password/reset")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody PasswordResetRequest request) {
+        authService.resetPassword(request.getToken(), request.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.success("비밀번호가 재설정되었습니다. 다시 로그인해 주세요."));
+    }
+
+    /**
+     * 닉네임 중복 확인 (회원가입/추가정보 폼 실시간 검증용).
+     * 사용 가능 = true. 이메일 중복 확인은 열거 공격 방지를 위해 제공하지 않음.
+     * @Vaild 어노테이션은 사용하지 않음. 
+     *    -> 중복확인의 경우 , 형식이 틀린 닉네임은 어차피 DB에 없음. 
+     *    -> 형식 검증은 최종 제출의 @Pattern 이 담당하므로 중복역할 제거.
+     */
+    @GetMapping("/nickname/available")
+    public ResponseEntity<ApiResponse<Boolean>> checkNicknameAvailable(
+            @RequestParam String nickname) {
+        boolean available = authService.isNicknameAvailable(nickname);
+        return ResponseEntity.ok(ApiResponse.success(available));
+    }
 
 }

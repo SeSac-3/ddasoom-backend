@@ -20,6 +20,10 @@ public class RedisTokenService {
   private String graceKey(Long memberId) { return "graceRefresh:" + memberId; }
   private String blacklistKey(String jti) { return "blacklist:" + jti; }
 
+  // 비밀번호 재설정 토큰 — 메일 문구 "30분"과 일치
+  private static final Duration RESET_TOKEN_TTL = Duration.ofMinutes(30);
+  private String resetTokenKey(String token) { return "resetToken:" + token; }
+
   // ── Refresh Token ──
   public void saveRefreshToken(Long memberId, String refreshToken, Duration ttl) {
       redisTemplate.opsForValue().set(refreshKey(memberId), refreshToken, ttl);
@@ -56,5 +60,20 @@ public class RedisTokenService {
 
   public boolean isBlacklisted(String jti) {
       return redisTemplate.hasKey(blacklistKey(jti));
+  }
+
+  // ── 이메일 인증을 연동한 비밀번호 재설정 요청 ──
+  public void saveResetToken(String token, Long memberId) {
+        redisTemplate.opsForValue().set(resetTokenKey(token), String.valueOf(memberId), RESET_TOKEN_TTL);
+  }
+
+  /** 토큰으로 memberId 조회 — 없으면(만료/위조) null */
+  public Long findMemberIdByResetToken(String token) {
+    String memberId = redisTemplate.opsForValue().get(resetTokenKey(token));
+    return memberId != null ? Long.valueOf(memberId) : null;
+  }
+
+  public void deleteResetToken(String token) {
+    redisTemplate.delete(resetTokenKey(token));
   }
 }

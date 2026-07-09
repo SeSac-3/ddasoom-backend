@@ -2,7 +2,9 @@ package com.paw.ddasoom.auth.service;
 
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,10 +26,14 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AuthService {
 
+  @Value("${ddasoom.service-url}")
+  private String serviceUrl;
+
   private final RedisTemplate<String, String> redisTemplate;
   private final MemberRepository memberRepository;
   private final PasswordEncoder passwordEncoder;
   private final MailUtil mailUtil;
+  private final RedisTokenService redisTokenService;
 
   private final SecureRandom random = new SecureRandom();
 
@@ -105,5 +111,46 @@ public class AuthService {
 
     return SignupResponse.from(member);
   }
+
+    /**-------------------------------------------------------------------------------------------------
+   *  비밀번호 재설정 메일 발송.
+   * -------------------------------------------------------------------------------------------------*/
+    public void sendPasswordResetLink(String email) {
+        memberRepository.findByEmail(email)
+                .filter(member -> !member.isDeleted())
+                .filter(member -> member.getPassword() != null)   // 소셜 전용 회원은 재설정 대상 아님
+                .ifPresent(member -> {
+                    String token = UUID.randomUUID().toString();
+                    redisTokenService.saveResetToken(token, member.getId());
+
+                    String resetLink = serviceUrl + "/reset-password?token=" + token;
+                    mailUtil.sendPasswordResetEmail(email, resetLink);
+                });
+        // 대상이 없어도 예외 없이 정상 종료 → 컨트롤러는 항상 동일 응답
+    }
+
+  /**-------------------------------------------------------------------------------------------------
+   *   토큰으로 비밀번호 재설정 → 성공 시 전 세션 무효화
+   * -------------------------------------------------------------------------------------------------*/
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+        Long memberId = redisTokenService.findMemberIdByResetToken(token);
+        if (memberId == null) {
+            throw new AuthException(AuthErrorCode.INVALID_RESET_TOKEN);
+        }
+
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new AuthException(AuthErrorCode.INVALID_RESET_TOKEN));
+
+        member.changePassword(passwordEncoder.encode(newPassword));
+
+        redisTokenService.deleteResetToken(token);          // 일회용 — 재사용 차단
+        redisTokenService.deleteRefreshTokens(memberId);    // 자격증명 교체 → 기존 세션 무효화
+    }
+
+    /** 닉네임 사용 가능 여부 — 사용 가능하면 true */
+    public boolean isNicknameAvailable(String nickname) {
+        return !memberRepository.existsByNickname(nickname);
+    }
 
 }

@@ -87,4 +87,15 @@ public class Member extends BaseTimeEntity{
       return this.deletedAt != null;
   }
 
+  // 리치도메인 메서드 -> 프로필(닉네임/전화번호) 수정
+  public void updateProfile(String nickname, String tel) {
+        this.nickname = nickname;
+        this.tel = tel;
+  }
+
+  // 리치도메인 메서드 -> 비밀번호 변경 (인코딩은 서비스 책임 — 인코딩된 값만 받는다)
+  public void changePassword(String encodedPassword) {
+        this.password = encodedPassword;
+  }
+
 }

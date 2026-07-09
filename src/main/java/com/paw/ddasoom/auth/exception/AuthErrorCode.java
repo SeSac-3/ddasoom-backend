@@ -32,7 +32,12 @@ public enum AuthErrorCode implements ErrorCode{
      회원가입 관련 에러코드 
   ----------------------------- */
   SOCIAL_EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "AUTH_106", "이미 해당 이메일로 가입된 계정이 있습니다. 기존 계정으로 로그인해 주세요."),
-  SOCIAL_EMAIL_REQUIRED(HttpStatus.BAD_REQUEST, "AUTH_107", "소셜 계정의 이메일 제공에 동의해 주세요.");
+  SOCIAL_EMAIL_REQUIRED(HttpStatus.BAD_REQUEST, "AUTH_107", "소셜 계정의 이메일 제공에 동의해 주세요."),
+
+   /**---------------------------- 
+     회원가입 관련 에러코드 
+  ----------------------------- */
+   INVALID_RESET_TOKEN(HttpStatus.BAD_REQUEST, "AUTH_108", "비밀번호 재설정 링크가 만료되었거나 유효하지 않습니다.");
 
 
     private final HttpStatus status;
