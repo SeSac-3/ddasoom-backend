@@ -4,6 +4,8 @@ import com.paw.ddasoom.common.util.BaseTimeEntity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
@@ -20,7 +22,7 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "member_social", uniqueConstraints = {
-    @UniqueConstraint(name = "uk_member_socials_provider", columnNames = {"provider", "provider_id"}) // 복합 유니크 키
+    @UniqueConstraint(name = "uk_member_social_provider", columnNames = {"provider", "provider_id"}) // 복합 유니크 키
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -31,19 +33,20 @@ public class MemberSocial extends BaseTimeEntity{
   @Column(name = "member_social_id")
   private Long id;
 
+  @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
-  private String provider; // KAKAO, NAVER, GOOGLE
+  private SocialProvider provider; // KAKAO, NAVER, GOOGLE
 
   @Column(name = "provider_id", nullable = false)
   private String providerId;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "member_id", nullable = false,
-     foreignKey = @ForeignKey(name = "fk_member_socials_member"))
+     foreignKey = @ForeignKey(name = "fk_member_social_member"))
   private Member member;
 
   @Builder
-  public MemberSocial(String provider, String providerId, Member member) {
+  public MemberSocial(SocialProvider provider, String providerId, Member member) {
       this.provider = provider;
       this.providerId = providerId;
       this.member = member;

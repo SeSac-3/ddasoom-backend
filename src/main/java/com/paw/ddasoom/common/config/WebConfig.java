@@ -1,6 +1,8 @@
 package com.paw.ddasoom.common.config;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -31,6 +33,13 @@ public class WebConfig implements WebMvcConfigurer{
                 .allowCredentials(true)
                 // 브라우저에서 preflight 요청 결과를 캐시할 시간을 초 단위로 지정합니다.
                 .maxAge(3600);
+    }
+
+    @Bean
+    public RestClient restClient(){
+        return RestClient.builder()
+            .baseUrl("${api.base-url}")
+            .build();
     }
 
 

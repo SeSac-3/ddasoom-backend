@@ -32,7 +32,7 @@ public class LoginLog {
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "member_id", nullable = false,
-          foreignKey = @ForeignKey(name = "fk_login_logs_member"))
+          foreignKey = @ForeignKey(name = "fk_login_log_member"))
   private Member member;
 
   @Enumerated(EnumType.STRING)

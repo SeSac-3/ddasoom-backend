@@ -14,6 +14,10 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.paw.ddasoom.auth.oauth2.CustomOAuth2UserService;
+import com.paw.ddasoom.auth.oauth2.OAuth2FailureHandler;
+import com.paw.ddasoom.auth.oauth2.OAuth2SuccessHandler;
+
 import lombok.RequiredArgsConstructor;
 
 @Configuration
@@ -25,6 +29,9 @@ public class SecurityConfig {
   private final AuthJwtTokenFilter authJwtTokenFilter;
   private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
   private final CustomAccessDeniedHandler customAccessDeniedHandler;
+  private final CustomOAuth2UserService customOAuth2UserService;
+  private final OAuth2SuccessHandler oAuth2SuccessHandler;
+  private final OAuth2FailureHandler oAuth2FailureHandler;
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -50,6 +57,17 @@ public class SecurityConfig {
                 .formLogin(auth -> auth.disable())
                 .httpBasic(auth -> auth.disable())
                 .logout(logout -> logout.disable())
+                // OAuth2 소셜 로그인 (카카오/네이버/구글)
+                .oauth2Login(oauth2 -> oauth2
+                        //두 경로를 /api 하위로 커스텀 — 프론트 프록시(/api)를 타기 위함
+                        .authorizationEndpoint(auth -> auth
+                                .baseUri("/api/oauth2/authorization"))          // 인가 시작: 소셜 버튼이 가리키는 곳
+                        .redirectionEndpoint(redirection -> redirection
+                                .baseUri("/api/login/oauth2/code/*"))           // 콜백: 3사 콘솔에 등록한 그 경로
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .userService(customOAuth2UserService))          // 회원 판별/생성 (5번)
+                        .successHandler(oAuth2SuccessHandler)                   // RT 쿠키 + 프론트 리다이렉트 (7번)
+                        .failureHandler(oAuth2FailureHandler))                  // 에러코드 쿼리 전달 (8번)
 
                 // JWT 인증 필터 등록 (UsernamePasswordAuthenticationFilter 앞)
                 .addFilterBefore(authJwtTokenFilter, UsernamePasswordAuthenticationFilter.class)

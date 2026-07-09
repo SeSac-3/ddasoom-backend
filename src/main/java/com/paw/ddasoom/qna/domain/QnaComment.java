@@ -1,9 +1,10 @@
 package com.paw.ddasoom.qna.domain;
 
-import java.lang.reflect.Member;
+
 import java.time.LocalDateTime;
 
 import com.paw.ddasoom.common.util.BaseTimeEntity;
+import com.paw.ddasoom.member.domain.Member;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

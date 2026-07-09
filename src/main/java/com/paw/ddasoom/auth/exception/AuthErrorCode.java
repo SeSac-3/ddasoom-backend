@@ -26,7 +26,13 @@ public enum AuthErrorCode implements ErrorCode{
   INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_101", "이메일 또는 비밀번호가 일치하지 않습니다."),
   UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "AUTH_102", "인증이 필요합니다. 다시 로그인해 주세요."),
   FORBIDDEN(HttpStatus.FORBIDDEN, "AUTH_103", "접근 권한이 없습니다."),
-  INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_104", "토큰 재발급에 실패했습니다.");
+  INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_104", "토큰 재발급에 실패했습니다."),
+
+  /**---------------------------- 
+     회원가입 관련 에러코드 
+  ----------------------------- */
+  SOCIAL_EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "AUTH_106", "이미 해당 이메일로 가입된 계정이 있습니다. 기존 계정으로 로그인해 주세요."),
+  SOCIAL_EMAIL_REQUIRED(HttpStatus.BAD_REQUEST, "AUTH_107", "소셜 계정의 이메일 제공에 동의해 주세요.");
 
 
     private final HttpStatus status;
