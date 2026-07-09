@@ -41,18 +41,24 @@ public class SecurityConfig {
         .csrf(csrf -> csrf.disable())
         //경로별 인가 작업
                 .authorizeHttpRequests(authorize -> authorize
+                        // ⚠️ requestMatchers는 선언 순서대로 매칭 — 구체적 경로(예외)를 넓은 경로보다 먼저!
+
+                        // 1. 공개 경로의 "예외" — auth 하위지만 토큰 필수
+                        .requestMatchers("/api/auth/logout").authenticated()
+
+                        // 2. GUEST 전용 — members 규칙보다 먼저
                         .requestMatchers("/api/members/me/signup-complete").hasRole("GUEST")
-                        // 🔽 여기에 로그인 없이 접근을 허용할 URL 경로 목록을 작성합니다.
-                        .requestMatchers(
-                                SecurityConstants.PUBLIC_URIS
-                        ).permitAll() // 위에 명시된 경로들은 모두 허용
 
-                        // 여기에 관리자만 접근을 허용할 URL 경로 목록 작성
-                        .requestMatchers(
-                                "/api/admin/**"
-                        ).hasRole("ADMIN")  // 관리자(ADMIN)
+                        // 3. 공개 경로 (SecurityConstants에서 관리)
+                        .requestMatchers(SecurityConstants.PUBLIC_URIS).permitAll()
 
-                        // 🔽 위에서 허용한 경로 외의 나머지 모든 요청은 반드시 인증(로그인)을 거쳐야 합니다.
+                        // 4. 회원 리소스 — USER/ADMIN
+                        .requestMatchers("/api/members/**").hasAnyRole("USER", "ADMIN")
+
+                        // 5. 관리자 전용
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                        // 6. 그 외 전부 인증 필요 (미분류 = 잠금이 기본값)
                         .anyRequest().authenticated()
                       )
                 .formLogin(auth -> auth.disable())
