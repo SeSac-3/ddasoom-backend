@@ -41,6 +41,7 @@ public class SecurityConfig {
         .csrf(csrf -> csrf.disable())
         //경로별 인가 작업
                 .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("/api/members/me/signup-complete").hasRole("GUEST")
                         // 🔽 여기에 로그인 없이 접근을 허용할 URL 경로 목록을 작성합니다.
                         .requestMatchers(
                                 SecurityConstants.PUBLIC_URIS
