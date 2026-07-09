@@ -94,4 +94,19 @@ public class MemberService {
       // 비밀번호 변경 = 자격증명 교체 → 기존 세션 전부 무효화 (탈취 의심 시나리오 방어)
       redisTokenService.deleteRefreshTokens(memberId);
   }
+
+  /**
+   * 회원 탈퇴 — soft delete + 전 세션 무효화.
+   * 정책(팀 결정 A): 탈퇴 이메일 재가입 불가 (soft delete + uk_member_email 유지가 곧 정책)
+   * AT 블랙리스트는 컨트롤러가 헤더에서 추출해 전달 (LoginService.logout과 동일 구조)
+   */
+  @Transactional
+  public void withdraw(Long memberId) {
+      Member member = getMember(memberId);
+      member.softDelete();   // 이미 탈퇴 상태면 엔티티가 ALREADY_DELETED_MEMBER throw
+
+      // 세션 정리 ①: RT + grace 삭제 → 이후 reissue 전부 차단
+      redisTokenService.deleteRefreshTokens(memberId);
+  }
+
 }
