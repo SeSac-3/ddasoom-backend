@@ -2,6 +2,7 @@ package com.paw.ddasoom.member.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,5 +32,12 @@ public class MemberController {
 
       MemberResponse response = memberService.completeSignup(userDetails.getMemberId(), request);
       return ResponseEntity.ok(ApiResponse.success("회원가입이 완료되었습니다.", response));
+  }
+
+    /** 내 정보 조회. 인가: USER/ADMIN (SecurityConfig) */
+  @GetMapping("/me")
+  public ResponseEntity<ApiResponse<MemberResponse>> getMyInfo(
+          @AuthenticationPrincipal CustomUserDetails userDetails) {
+      return ResponseEntity.ok(ApiResponse.success(memberService.getMyInfo(userDetails.getMemberId())));
   }
 }

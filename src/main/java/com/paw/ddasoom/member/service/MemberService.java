@@ -48,4 +48,10 @@ public class MemberService {
       return memberRepository.findById(memberId)
               .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
   }
+
+    /** 내 정보 조회 — 마이페이지/헤더용 */
+  @Transactional(readOnly = true)
+  public MemberResponse getMyInfo(Long memberId) {
+      return MemberResponse.from(getMember(memberId));
+  }
 }
