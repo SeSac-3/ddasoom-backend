@@ -148,5 +148,9 @@ public class AuthService {
         redisTokenService.deleteRefreshTokens(memberId);    // 자격증명 교체 → 기존 세션 무효화
     }
 
+    /** 닉네임 사용 가능 여부 — 사용 가능하면 true */
+    public boolean isNicknameAvailable(String nickname) {
+        return !memberRepository.existsByNickname(nickname);
+    }
 
 }

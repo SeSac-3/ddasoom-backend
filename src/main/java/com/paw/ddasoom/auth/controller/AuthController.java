@@ -7,10 +7,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.paw.ddasoom.auth.dto.request.AuthCodeSendRequest;
@@ -126,6 +128,17 @@ public class AuthController {
             @Valid @RequestBody PasswordResetRequest request) {
         authService.resetPassword(request.getToken(), request.getNewPassword());
         return ResponseEntity.ok(ApiResponse.success("비밀번호가 재설정되었습니다. 다시 로그인해 주세요."));
+    }
+
+    /**
+     * 닉네임 중복 확인 (회원가입/추가정보 폼 실시간 검증용).
+     * 사용 가능 = true. 이메일 중복 확인은 열거 공격 방지를 위해 제공하지 않음.
+     */
+    @GetMapping("/nickname/available")
+    public ResponseEntity<ApiResponse<Boolean>> checkNicknameAvailable(
+            @RequestParam String nickname) {
+        boolean available = authService.isNicknameAvailable(nickname);
+        return ResponseEntity.ok(ApiResponse.success(available));
     }
 
 }
