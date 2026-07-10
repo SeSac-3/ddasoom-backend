@@ -11,8 +11,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.paw.ddasoom.common.dto.ApiResponse;
 import com.paw.ddasoom.common.security.CustomUserDetails;
 import com.paw.ddasoom.foster.dto.request.FosterCreateRequest;
-import com.paw.ddasoom.foster.dto.response.FosterResponse;
-import com.paw.ddasoom.foster.service.FosterAdminService;
 import com.paw.ddasoom.foster.service.FosterService;
 
 import jakarta.validation.Valid;

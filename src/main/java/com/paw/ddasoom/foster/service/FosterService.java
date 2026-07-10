@@ -8,7 +8,6 @@ import com.paw.ddasoom.animal.exception.AnimalException;
 import com.paw.ddasoom.animal.repository.AnimalApiRepository;
 import com.paw.ddasoom.foster.domain.Foster;
 import com.paw.ddasoom.foster.dto.request.FosterCreateRequest;
-import com.paw.ddasoom.foster.dto.response.FosterResponse;
 import com.paw.ddasoom.foster.repository.FosterRepository;
 import com.paw.ddasoom.member.domain.Member;
 import com.paw.ddasoom.member.exception.MemberErrorCode;
