@@ -3,12 +3,14 @@ package com.paw.ddasoom.auth.domain;
 import java.time.LocalDateTime;
 
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import com.paw.ddasoom.common.util.BaseTimeEntity;
 import com.paw.ddasoom.member.domain.Member;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -29,6 +31,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "login_log")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@EntityListeners(AuditingEntityListener.class)
 public class LoginLog{
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
