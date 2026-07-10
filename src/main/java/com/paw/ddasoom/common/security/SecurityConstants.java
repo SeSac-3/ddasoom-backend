@@ -12,5 +12,8 @@ public class SecurityConstants {
       // ── 타 도메인 (각 담당자가 추가) ──
       // 예) "/api/animals",  "/api/animals/*",     — 유기동물 목록/상세 조회 
       // 예) "/api/boards/**" GET 만 공개라면 아래 "메서드 분리" 참고 후 담당자와 협의
+      // ── auth (공지사항 — 서진) ──
+      "/api/notices",   // 공지사항 전체 목록 조회 (비로그인 허용)
+      "/api/notices/*", // 공지사항 상세 조회 (비로그인 허용)
   };
 }

@@ -1,7 +1,8 @@
 package com.paw.ddasoom.support.dto.request;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import java.util.List;
+
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -9,11 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class NoticePinReorderRequest {
 
-  @NotBlank(message = "제목은 필수입니다.")
-  @Size(max = 255, message = "제목은 255자를 초과할 수 없습니다.")
-  private String title;
-
-  @NotBlank(message = "내용은 필수입니다.")
-  private String content;
+  @NotNull(message = "noticeIds는 필수입니다. (전체 해제 시 빈 배열 전송 가능)")
+  private List<Long> noticeIds;
 
 }

@@ -47,7 +47,7 @@ public class Notice extends BaseTimeEntity {
   @Column(nullable = false, length = 255)
   private String title;
 
-  @Column(nullable = false, length = 255)
+  @Column(nullable = false,columnDefinition = "TEXT")
   private String content;
 
   /*
@@ -105,6 +105,11 @@ public class Notice extends BaseTimeEntity {
   /* 리치도메인 메서드 -> 고정 해제 */
   public void unpin() {
       this.pinOrder = null;
+  }
+
+  /* */
+  public boolean isPinned() {
+    return this.pinOrder != null;
   }
 
   /* 논리 삭제 수행 */
