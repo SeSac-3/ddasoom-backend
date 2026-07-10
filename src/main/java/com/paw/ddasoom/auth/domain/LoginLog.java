@@ -1,5 +1,10 @@
 package com.paw.ddasoom.auth.domain;
 
+import java.time.LocalDateTime;
+
+import org.springframework.data.annotation.CreatedDate;
+
+import com.paw.ddasoom.common.util.BaseTimeEntity;
 import com.paw.ddasoom.member.domain.Member;
 
 import jakarta.persistence.Column;
@@ -24,7 +29,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "login_log")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class LoginLog {
+public class LoginLog{
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   @Column(name = "login_log_id")
@@ -38,6 +43,10 @@ public class LoginLog {
   @Enumerated(EnumType.STRING)
   @Column(name = "login_type", nullable = false, length = 20)
   private LoginType loginType;
+
+  @CreatedDate
+  @Column(nullable = false, updatable = false, columnDefinition = "DATETIME(6)")
+  private LocalDateTime createdAt;   // 불변 로그 — updated_at 없음 (DB 컨벤션 예외 조항 참고)
 
   @Builder
   public LoginLog(Member member, LoginType loginType) {

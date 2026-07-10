@@ -98,4 +98,12 @@ public class Member extends BaseTimeEntity{
         this.password = encodedPassword;
   }
 
+  // 리치도메인 메서드 -> 계정 복구 (관리자 전용 — soft delete 역연산)
+  public void restore() {
+    if (this.deletedAt == null) {
+        throw new MemberException(MemberErrorCode.NOT_DELETED_MEMBER);
+    }
+    this.deletedAt = null;
+  }
+
 }
