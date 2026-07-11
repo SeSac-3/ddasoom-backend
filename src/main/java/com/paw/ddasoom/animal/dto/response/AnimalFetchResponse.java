@@ -39,6 +39,6 @@ public record AnimalFetchResponse(
     @JsonProperty("specialMark") String specialMark,
     @JsonProperty("vaccinationChk") String vaccinationChk,
     @JsonProperty("popfile1") String imageUrl,
-    @JsonProperty("bgnde") String rescuedAt
+    @JsonProperty("happenDt") String rescuedAt
   ) {}
 }
