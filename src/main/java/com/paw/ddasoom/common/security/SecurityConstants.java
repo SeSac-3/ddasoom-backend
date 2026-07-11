@@ -15,5 +15,9 @@ public class SecurityConstants {
       // ── auth (공지사항 — 서진) ──
       "/api/notices",   // 공지사항 전체 목록 조회 (비로그인 허용)
       "/api/notices/*", // 공지사항 상세 조회 (비로그인 허용)
+      // ── auth (Animal API ─ 종식) ──
+      "/api/animals/list",            // 전체 동물 목록
+      "/api/{animalId}/nickname",     // 유기동물 닉네임 수정
+      "/api/animals/sync",            // 유기동물 DB에 저장
   };
 }
