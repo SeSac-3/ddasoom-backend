@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import com.paw.ddasoom.animal.exception.AnimalErrorCode;
+import com.paw.ddasoom.animal.exception.AnimalException;
 import com.paw.ddasoom.common.util.BaseTimeEntity;
 
 import jakarta.persistence.Column;
@@ -96,4 +98,64 @@ public class Animal extends BaseTimeEntity {
 
   @Column(name = "deleted_at")
   private LocalDateTime deletedAt;
+
+  public void increaseLikeCount() {
+    this.likeCount++;
+  }
+
+  public void decreaseLikeCount() {
+    if (likeCount > 0) {
+        this.likeCount--;
+    }
+  }
+
+  public void markAsFostered() {
+    this.isFostered = true;
+  }
+
+  public void changeNickname(String nickname) {
+    if (nickname == null || nickname.isBlank()) {
+      throw new AnimalException(AnimalErrorCode.ANIMAL_NAME_INVALID);
+    }
+    this.nickname = nickname;
+  }
+
+  // Animal.java에 추가할 비즈니스 메서드
+
+  // 1. API 동기화 배치 전용 — likeCount/isFostered/deletedAt은 건드리지 않음
+  public void updateFromApi(
+    String kind,
+    String gender,
+    String typeName,
+    String age,
+    String location,
+    String weight,
+    String color,
+    String specialMark,
+    String vaccinationChk,
+    String imageUrl,
+    LocalDateTime rescuedAt) {
+    this.kind = AnimalKind.from(kind);
+    this.gender = AnimalGender.from(gender);
+    this.typeName = typeName;
+    this.age = age;
+    this.location = location;
+    this.weight = weight;
+    this.color = color;
+    this.specialMark = specialMark;
+    this.vaccinationChk = vaccinationChk;
+    this.imageUrl = imageUrl;
+    this.rescuedAt = rescuedAt;
+  }
+
+  // 2. Write-Behind 배치 전용 — 다른 필드는 건드리지 않음
+  public void updateLikeCount(int likeCount) {
+    this.likeCount = likeCount;
+  }
+
+  // 3. foster 도메인 전용 — 다른 필드는 건드리지 않음
+  public void updateFosteredStatus(boolean isFostered) {
+    this.isFostered = isFostered;
+  }
+
 }

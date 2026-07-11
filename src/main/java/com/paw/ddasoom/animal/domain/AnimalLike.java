@@ -1,7 +1,5 @@
 package com.paw.ddasoom.animal.domain;
 
-import java.time.LocalDateTime;
-
 import com.paw.ddasoom.common.util.BaseTimeEntity;
 import com.paw.ddasoom.member.domain.Member;
 
@@ -38,7 +36,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class AnimalLike extends BaseTimeEntity {
 
-  @Id
+    @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "animal_like_id")
     private Long id;
@@ -50,7 +48,4 @@ public class AnimalLike extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
-
-    @Column(name = "deleted_at")
-    private LocalDateTime deletedAt; // NULL=활성, 좋아요 취소 시 세팅
 }
