@@ -2,6 +2,7 @@ package com.paw.ddasoom.animal.domain;
 
 import java.time.LocalDateTime;
 
+import org.apache.commons.lang3.StringUtils;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -142,8 +143,8 @@ public class Animal extends BaseTimeEntity {
     this.location = location;
     this.weight = weight;
     this.color = color;
-    this.specialMark = specialMark;
-    this.vaccinationChk = vaccinationChk;
+    this.specialMark = StringUtils.defaultIfBlank(specialMark, "없음");
+    this.vaccinationChk = StringUtils.defaultIfBlank(vaccinationChk, "접종 안함");
     this.imageUrl = imageUrl;
     this.rescuedAt = rescuedAt;
   }

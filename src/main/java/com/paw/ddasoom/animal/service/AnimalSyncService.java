@@ -3,6 +3,7 @@ package com.paw.ddasoom.animal.service;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
 import com.paw.ddasoom.animal.domain.Animal;
@@ -62,8 +63,8 @@ public class AnimalSyncService {
                 item.location(),
                 item.weight(),
                 item.color(),
-                item.specialMark(),
-                item.vaccinationChk(),
+                StringUtils.defaultIfBlank(item.specialMark(), "없음"),
+                StringUtils.defaultIfBlank(item.vaccinationChk(), "접종 안함"),
                 item.imageUrl(),
                 dateConverter.convert(item.rescuedAt())
             );
@@ -83,8 +84,8 @@ public class AnimalSyncService {
         .location(item.location())
         .weight(item.weight())
         .color(item.color())
-        .specialMark(item.specialMark())
-        .vaccinationChk(item.vaccinationChk())
+        .specialMark(StringUtils.defaultIfBlank(item.specialMark(), "없음"))
+        .vaccinationChk(StringUtils.defaultIfBlank(item.vaccinationChk(), "접종 안함"))
         .imageUrl(item.imageUrl())
         .rescuedAt(dateConverter.convert(item.rescuedAt()))
         .build();
