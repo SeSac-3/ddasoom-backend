@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
  */
 @Getter
 @AllArgsConstructor
-public class PostListDto {
+public class PostListProjection {
 
     private final Long postId;
     private final String category;

@@ -2,7 +2,7 @@ package com.paw.ddasoom.board.repository;
 
 import com.paw.ddasoom.board.domain.BoardType;
 import com.paw.ddasoom.board.domain.Post;
-import com.paw.ddasoom.board.dto.projection.PostListDto;
+import com.paw.ddasoom.board.dto.projection.PostListProjection;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,7 +29,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
           AND p.deletedAt IS NULL
         ORDER BY p.createdAt DESC
         """)
-    Page<PostListDto> findPostList(
+    Page<PostListProjection> findPostList(
             @Param("boardType") BoardType boardType,
             @Param("category") String category,
             Pageable pageable);
