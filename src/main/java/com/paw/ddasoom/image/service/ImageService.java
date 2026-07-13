@@ -67,7 +67,7 @@ public class ImageService {
 
     private void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new ImageException(ImageErrorCode.INVAILD_IMAGE_TYPE);
+            throw new ImageException(ImageErrorCode.INVALID_IMAGE_TYPE);
         }
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new ImageException(ImageErrorCode.IMAGE_SIZE_EXCEEDED);
@@ -77,7 +77,7 @@ public class ImageService {
         boolean isInvalidType = !ALLOWED_EXTENSIONS.contains(extension)
                 || !ALLOWED_MIME_TYPES.contains(file.getContentType());
         if (isInvalidType) {
-            throw new ImageException(ImageErrorCode.INVAILD_IMAGE_TYPE);
+            throw new ImageException(ImageErrorCode.INVALID_IMAGE_TYPE);
         }
     }
 
