@@ -19,5 +19,6 @@ public class SecurityConstants {
       "/api/animals/list",            // 전체 동물 목록
       "/api/{animalId}/nickname",     // 유기동물 닉네임 수정
       "/api/animals/sync",            // 유기동물 DB에 저장
+      "/api/animals/**"               // 좋아요, 좋아요 취소, 좋아요 수 업데이트
   };
 }
