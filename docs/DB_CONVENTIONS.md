@@ -71,7 +71,10 @@
 
 ### 📌 기본 원칙
 
-> **시간의 주인은 애플리케이션(JPA Auditing), DB DEFAULT는 안전망으로만 사용한다.**
+> **시스템 감사 시각(created_at / updated_at)의 주인은 DB, 비즈니스 이벤트 시각(deleted_at, answered_at 등)의 주인은 애플리케이션이다.**
+
+- 시스템 감사 시각 = "이 행이 언제 생성/변경됐나"라는 기계적 사실 → 어떤 경로(JPA, 수동 SQL, 배치)로 변경되든 누락 없이 기록되어야 하므로 모든 경로를 포괄하는 DB가 기록한다.
+- 비즈니스 이벤트 시각 = "탈퇴했다, 답변했다, 보호가 시작됐다"라는 의미 있는 사건 → 그 의미를 아는 것은 애플리케이션뿐이므로 서비스 로직이 기록한다.
 
 ### 타입 규칙
 
@@ -81,34 +84,38 @@
 - DEFAULT 표기는 **`CURRENT_TIMESTAMP(6)`** 만 사용
   - `NOW()` 등 다른 표기 금지, 컬럼 정밀도와 DEFAULT 정밀도 일치 필수
 
-### 감사(Audit) 컬럼 — 모든 테이블 공통
+### 감사(Audit) 컬럼
 
-| 컬럼 | 타입 | NULL | DEFAULT | 관리 주체 |
+| 컬럼 | 타입 | NULL | DDL 정의 | 관리 주체 |
 | --- | --- | --- | --- | --- |
-| `created_at` | DATETIME(6) | NOT NULL | CURRENT_TIMESTAMP(6) | JPA `@CreatedDate` (DEFAULT는 안전망) |
-| `updated_at` | DATETIME(6) | NOT NULL | 없음 | JPA `@LastModifiedDate` |
-| `deleted_at` | DATETIME(6) | NULL | 없음 | 서비스 로직 (soft delete) |
+| `created_at` | DATETIME(6) | NOT NULL | DEFAULT CURRENT_TIMESTAMP(6) | **DB** (INSERT 시 자동) |
+| `updated_at` | DATETIME(6) | NOT NULL | DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6) | **DB** (INSERT/UPDATE 시 자동) |
+| `deleted_at` | DATETIME(6) | NULL | 없음 | 애플리케이션 (soft delete 로직) |
 
-- `updated_at`은 생성 시점에 `created_at`과 동일한 값으로 세팅 (JPA Auditing 기본 동작)
-- `deleted_at`은 **NULL = 활성 상태**
-- **`ON UPDATE CURRENT_TIMESTAMP` 사용 금지** — updated_at 갱신 여부는 애플리케이션이 결정
-- 감사 컬럼 3종은 `BaseEntity`(@MappedSuperclass) 상속으로 통일 관리
+- `updated_at`은 **행의 실제 값이 바뀐 모든 UPDATE에서 DB가 자동 갱신**한다. soft delete도 UPDATE이므로 자동으로 함께 갱신된다. "updated_at을 갱신하지 않는 수정"이라는 선택지는 없다.
+- `deleted_at`은 **NULL = 활성 상태**. 복구 = NULL로 되돌림.
+- created_at / updated_at 2종은 `BaseTimeEntity`(@MappedSuperclass) 상속으로 통일 관리하고, **deleted_at은 soft delete를 채택한 테이블에만 개별 선언**한다 (모든 테이블의 속성이 아니므로 슈퍼클래스에 넣지 않는다).
+- **예외**: INSERT-only 로그성 테이블(`login_log` 등)은 수정이 발생하지 않으므로 `updated_at`/`deleted_at`을 두지 않는다. created_at만 개별 선언한다.
 - 컬럼 배치 순서: `created_at → updated_at → deleted_at` 고정
 
 ```java
+@Getter
 @MappedSuperclass
-@EntityListeners(AuditingEntityListener.class)
-public abstract class BaseEntity {
+public abstract class BaseTimeEntity {
 
-    @CreatedDate
-    @Column(nullable = false, updatable = false, columnDefinition = "DATETIME(6)")
+    // 시간의 주인 = DB — 앱은 읽기만 한다.
+    // @Generated: INSERT/UPDATE 직후 DB가 채운 값을 Hibernate가 다시 읽어 엔티티에 반영
+    @Generated(event = EventType.INSERT)
+    @Column(insertable = false, updatable = false, columnDefinition = "DATETIME(6)")
     private LocalDateTime createdAt;
 
-    @LastModifiedDate
-    @Column(nullable = false, columnDefinition = "DATETIME(6)")
+    @Generated(event = { EventType.INSERT, EventType.UPDATE })
+    @Column(insertable = false, updatable = false, columnDefinition = "DATETIME(6)")
     private LocalDateTime updatedAt;
 }
 ```
+
+- ⚠️ JPA Auditing(`@CreatedDate`, `@LastModifiedDate`, `@EnableJpaAuditing`)은 **이 프로젝트에서 사용하지 않는다.** 리스너가 등록되어 있지 않으므로 해당 어노테이션을 쓰면 **조용히 동작하지 않는다** — 시간 필드가 필요하면 반드시 `BaseTimeEntity` 상속으로 해결할 것.
 
 ### 도메인 시간 컬럼
 
@@ -120,19 +127,12 @@ public abstract class BaseEntity {
 
 - 삭제 = `deleted_at`에 현재 시각 세팅 (물리 DELETE 금지)
 - 복구 = `deleted_at = NULL`
-- soft delete도 '수정'으로 간주 → updated_at 함께 갱신 허용
+- soft delete 시 updated_at은 DB(ON UPDATE)가 자동 갱신한다 — 별도 처리 불필요
 - 활성 데이터 조회 조건: `WHERE deleted_at IS NULL`
 
 ### Timezone 규칙
 
-> **DB · JDBC · JVM 세 곳의 timezone은 반드시 일치시킨다. (Asia/Seoul 고정)**
-
-| 위치 | 설정 |
-| --- | --- |
-| MySQL | `default_time_zone = '+09:00'` |
-| JDBC URL | `serverTimezone=Asia/Seoul` |
-| JVM / Spring | `-Duser.timezone=Asia/Seoul` |
-| Java 타입 | `LocalDateTime` |
+(기존 내용 그대로 유지 — DB · JDBC · JVM 세 곳 Asia/Seoul 일치)
 
 ---
 

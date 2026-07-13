@@ -76,7 +76,7 @@ com.paw.ddasoom
 - `@NoArgsConstructor(access = AccessLevel.PROTECTED)` + `@Builder` 생성자 조합. `@Setter` **전면 금지**.
 - 상태 변경은 의미 있는 이름의 **리치 도메인 메서드**로만 수행합니다.
   (예: `member.softDelete()`, `member.updateExtraInfo(...)` — `setDeleted(true)` 같은 setter 금지)
-- 생성/수정 시각이 필요한 엔티티는 `BaseTimeEntity`를 상속합니다.
+- 생성/수정 시각이 필요한 엔티티는 `BaseTimeEntity`를 상속합니다. 시각 값은 DB가 생성하며(DEFAULT/ON UPDATE) 앱에서 세팅하지 않습니다 — `@CreatedDate` 등 JPA Auditing 어노테이션은 사용 금지(리스너 미등록으로 동작하지 않음).
 
 ---
 
