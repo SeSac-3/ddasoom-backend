@@ -139,7 +139,7 @@ public class AuthController {
      */
     @GetMapping("/nickname/available")
     public ResponseEntity<ApiResponse<Boolean>> checkNicknameAvailable(
-            @RequestParam String nickname) {
+            @RequestParam("nickname") String nickname) {
         boolean available = authService.isNicknameAvailable(nickname);
         return ResponseEntity.ok(ApiResponse.success(available));
     }
