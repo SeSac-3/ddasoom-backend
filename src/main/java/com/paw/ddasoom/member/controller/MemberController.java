@@ -67,8 +67,8 @@ public class MemberController {
   @GetMapping("/me/login-logs")
   public ResponseEntity<ApiResponse<PageResponse<LoginLogResponse>>> getMyLoginLogs(
           @AuthenticationPrincipal CustomUserDetails userDetails,
-          @RequestParam(defaultValue = "0") int page,
-          @RequestParam(defaultValue = "20") int size) {
+          @RequestParam(name = "page", defaultValue = "0") int page,
+          @RequestParam(name = "size", defaultValue = "20") int size) {
       return ResponseEntity.ok(ApiResponse.success(
               memberService.getMyLoginLogs(userDetails.getMemberId(), PageRequest.of(page, size))));
   }
