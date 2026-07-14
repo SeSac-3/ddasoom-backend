@@ -7,13 +7,11 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record AnimalFetchResponse(
-    @JsonProperty("response") Response response
-) { 
+public record AnimalFetchResponse(@JsonProperty("response") Response response) { 
+    
   @JsonIgnoreProperties(ignoreUnknown = true)
-  public record Response(
-    @JsonProperty("body") Body body
-  ) {}
+  public record Response(@JsonProperty("body") Body body) {}
+
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record Body(
     @JsonProperty("items") Items items,
@@ -21,11 +19,13 @@ public record AnimalFetchResponse(
     @JsonProperty("pageNo") String pageNo,
     @JsonProperty("totalCount") String totalCount
   ) {}
+
   @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record Items(
     @JsonProperty("item") List<AnimalItem> item 
   ) {}
+
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record AnimalItem(
     @JsonProperty("desertionNo") String abandonmentId,
@@ -41,4 +41,5 @@ public record AnimalFetchResponse(
     @JsonProperty("popfile1") String imageUrl,
     @JsonProperty("happenDt") String rescuedAt
   ) {}
+
 }
