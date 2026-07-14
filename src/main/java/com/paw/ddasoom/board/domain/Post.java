@@ -40,7 +40,7 @@ public class Post extends BaseTimeEntity {
     @Column(name = "board_type", length = 30, nullable = false)
     private BoardType boardType;
 
-    /** 보드별 카테고리 (강아지, 고양이 등) — 값 목록 확정 전이라 String 유지, 확정 시 Enum 전환 후보 */
+    /** 보드 내 세부 카테고리 (예: 예방접종) — 종(강아지/고양이)은 boardType으로 분리됨. 값 목록 확정 전이라 String 유지 */
     @Column(name = "category", length = 50, nullable = false)
     private String category;
 
