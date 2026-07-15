@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.paw.ddasoom.common.dto.PageResponse;
+import com.paw.ddasoom.image.domain.OwnerType;
+import com.paw.ddasoom.image.service.ImageService;
 import com.paw.ddasoom.member.domain.Member;
 import com.paw.ddasoom.member.exception.MemberErrorCode;
 import com.paw.ddasoom.member.exception.MemberException;
@@ -33,6 +35,7 @@ public class NoticeService {
 
   private final NoticeRepository noticeRepository;
   private final MemberRepository memberRepository;
+  private final ImageService imageService;
 
   // ====== 1. 유저용 ========
 
@@ -48,7 +51,7 @@ public class NoticeService {
   public NoticeResponse getNotice(Long noticeId) {
       Notice notice = getNoticeEntity(noticeId);
 
-  // 비노출 공지 = 유저기준 "삭제"와 동일 취급
+  // 2-1) 비노출 공지 = 유저기준 "삭제"와 동일 취급
   if (!notice.getIsVisible()) {
     throw new SupportException(SupportErrorCode.NOTICE_NOT_FOUND);
   }
@@ -76,15 +79,18 @@ public class NoticeService {
       .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
 
     // 3-1) 요청 데이터
-    Notice notice = Notice.builder()
-      .member(member)
-      .title(request.getTitle())
-      .content(request.getContent())
-      .build();
+  Notice notice = Notice.builder()
+    .member(member)
+    .title(request.getTitle())
+    .content(request.getContent())
+    .build();
 
-    // 3-2) DB 저장 이후 Response DTO 생성 후 반환
-    Notice savedNotice = noticeRepository.save(notice);
-    return NoticeResponse.from(savedNotice);
+  // 3-2) DB 저장 (이미지 연결에 필요한 noticeId 확보)
+  Notice savedNotice = noticeRepository.save(notice);
+
+  // 3-3) 본문 이미지 확정 연결 (리스트 순서 = image_order)
+  imageService.attach(request.getImageIds(), OwnerType.NOTICE, savedNotice.getId());
+  return NoticeResponse.from(savedNotice);
   }
   
   // 4) 공지사항 수정
@@ -92,6 +98,9 @@ public class NoticeService {
   public NoticeResponse updateNotice(Long noticeId, NoticeUpdateRequest request) {
     Notice notice = getNoticeEntity(noticeId);
     notice.update(request.getTitle(), request.getContent());
+
+    //4-1) 최종 imageIds 전체로 diff (제외 이미지: soft delete + 순서 갱신)
+    imageService.syncImages(request.getImageIds(),OwnerType.NOTICE, noticeId);
     noticeRepository.flush();
     return NoticeResponse.from(notice);
   }
@@ -108,6 +117,9 @@ public class NoticeService {
   public void deleteNotice(Long noticeId) {
       Notice notice = getNoticeEntity(noticeId);
       notice.softDelete();
+
+      // 6-1) 소유자 삭제 시 이미지 정리
+      imageService.syncImages(List.of(),OwnerType.NOTICE, noticeId);
   }
 
   /** 
