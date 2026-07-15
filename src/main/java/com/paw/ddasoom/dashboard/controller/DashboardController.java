@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.paw.ddasoom.common.dto.ApiResponse;
-import com.paw.ddasoom.dashboard.dto.response.NewMemberCountResponse;
+import com.paw.ddasoom.dashboard.dto.NewMemberCountResponse;
 import com.paw.ddasoom.dashboard.service.DashboardService;
 
 import lombok.RequiredArgsConstructor;

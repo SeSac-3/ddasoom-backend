@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.paw.ddasoom.dashboard.dto.response.NewMemberCountResponse;
+import com.paw.ddasoom.dashboard.dto.NewMemberCountResponse;
 import com.paw.ddasoom.member.repository.MemberRepository;
 
 import lombok.RequiredArgsConstructor;
