@@ -1,6 +1,8 @@
 package com.paw.ddasoom.support.service;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -136,10 +138,18 @@ public class NoticeService {
             .forEach(Notice::unpin);
 
     // 7-2) 고정글 순서 부여
-    for (int i = 0; i < orderedNoticeIds.size(); i++) {
-        Notice notice = getNoticeEntity(orderedNoticeIds.get(i));
-        notice.pin(i + 1);
-    }
+    Map<Long, Notice> noticeMap = noticeRepository
+      .findAllByIdInAndDeletedAtIsNull(orderedNoticeIds).stream()
+      .collect(Collectors.toMap(Notice::getId, notice -> notice));
+    
+      for (int i=0; i<orderedNoticeIds.size(); i++) {
+        Notice notice = noticeMap.get(orderedNoticeIds.get(i));
+        if (notice == null) {
+          throw new SupportException(SupportErrorCode.NOTICE_NOT_FOUND);
+        }
+        notice.pin(i+1);
+      }
+    
   }
 
 // ====== 3. 내부 조회 ========

@@ -40,4 +40,7 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
       ORDER BY n.pinOrder ASC
       """)
     List<Notice> findAllPinned();
+
+  // 재정렬(reorderPinned)용 — 요청받은 ID들 중 삭제되지 않은 공지만 일괄 조회 (N+1 방지)
+  List<Notice> findAllByIdInAndDeletedAtIsNull(List<Long> ids);
 }
