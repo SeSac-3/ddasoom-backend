@@ -1,5 +1,6 @@
 package com.paw.ddasoom.member.repository;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -26,4 +27,7 @@ public interface MemberRepository extends JpaRepository<Member, Long>{
   Page<Member> searchForAdmin(@Param("keyword") String keyword,
                               @Param("role") Role role,
                               Pageable pageable);
+
+  // 기간별 가입자 수 집계 — 대시보드(금일)·통계(일별/월별 추이)가 공통 재사용
+  long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
 }
