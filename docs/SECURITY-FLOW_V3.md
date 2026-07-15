@@ -2,12 +2,13 @@
 
 > 인증/인가가 어떻게 동작하는지, 그리고 **각 도메인 개발자가 컨트롤러에서 로그인한 회원 정보를 어떻게 꺼내 쓰는지** 안내하는 문서입니다.
 >
-> ✅ **구현 상태**: 이메일 인증 회원가입, 일반 로그인/로그아웃, 토큰 재발급(RT 로테이션 + grace), SNS 로그인(카카오/네이버/구글), GUEST 추가정보 승급, 마이페이지(조회/수정/비밀번호 변경/탈퇴), 비밀번호 재설정 — **전부 구현 완료.** 남은 것은 관리자 회원 API(`/api/admin/members/**`)뿐입니다.
+> ✅ **구현 상태**: 이메일 인증 회원가입(시도 제한·재발송 쿨다운 포함), 일반 로그인/로그아웃, 토큰 재발급(RT 로테이션 + grace), SNS 로그인(카카오/네이버/구글, 탈퇴 회원 차단), GUEST 추가정보 승급, 마이페이지(조회/수정/비밀번호 변경/탈퇴), 비밀번호 재설정(탈퇴 회원 차단), 관리자 회원 관리(목록/상세/강제탈퇴/복구), 관리자 대시보드 통계 — **전부 구현 완료.**
 >
 > 🔑 **토큰 정책 (확정)**:
-> - **Access Token** → 서버 미저장(로그아웃 블랙리스트만 예외), 클라이언트는 **전역 상태 변수**(zustand) 보관, 매 요청 `Authorization: Bearer` 헤더. **localStorage / sessionStorage / 쿠키 저장 금지.**
+> - **Access Token** → 서버 미저장(로그아웃 jti 블랙리스트만 예외), 클라이언트는 **전역 상태 변수**(zustand) 보관, 매 요청 `Authorization: Bearer` 헤더. **localStorage / sessionStorage / 쿠키 저장 금지.**
 > - **Refresh Token** → **HttpOnly 쿠키** + **Redis** 이중 관리. 프론트 JS 접근 불가.
 > - **RT 로테이션 적용**, 멀티탭 동시 재발급 경합은 **서버 grace period(30초)** 가 흡수.
+> - **탈퇴(자진·강제) 시 회원 단위 즉시 차단** — 재발급 차단뿐 아니라 이미 발급된 모든 AT를 `forceLogout` 마커로 즉시 무효화. (5절 참고)
 
 ---
 
@@ -28,8 +29,8 @@
 
 ```
 [일반 회원가입]
-POST /api/auth/email/send    인증코드 발송 (재발송 겸용 — 기존 인증상태 무효화)
-POST /api/auth/email/verify  코드 검증 → verified:{email} (30분)
+POST /api/auth/email/send    인증코드 발송 (재발송 겸용 — 기존 인증상태 무효화, 60초 쿨다운)
+POST /api/auth/email/verify  코드 검증 → verified:{email} (30분) — 시도 5회 초과 시 코드 폐기
 POST /api/auth/signup        verified 확인 → BCrypt 저장(USER) → 201 + 환영 메일
 
 [일반 로그인]
@@ -42,7 +43,7 @@ POST /api/auth/login
 소셜 버튼 = <a href="/api/oauth2/authorization/{provider}">  ※ axios 금지, 페이지 이동
   → provider 동의 → 콜백(/api/login/oauth2/code/{provider})
   → provider+providerId 로 회원 판별 (신원은 이메일이 아님!)
-      ├ 기존 연동 회원 → 로그인 (탈퇴 회원은 차단)
+      ├ 기존 연동 회원 → 로그인 (탈퇴 회원 → AUTH_109, 아래 참고)
       ├ 신규 + 이메일 충돌 → AUTH_106 (수동 연동 정책 — 자동 연동 금지)
       └ 신규 → Member(GUEST, password=NULL) + MemberSocial 생성
   → 성공: RT 쿠키만 발급 후 {프론트}/oauth/callback 리다이렉트 (AT는 콜백의 reissue가 발급)
@@ -50,8 +51,8 @@ POST /api/auth/login
 
 [인증 API 호출]
 Authorization: Bearer {AT}
-  → AuthJwtTokenFilter: 파싱 → category=access 확인 → 블랙리스트 확인
-  → claims만으로 CustomUserDetails 구성 (매 요청 DB 조회 없음)
+  → AuthJwtTokenFilter: 파싱 → category=access 확인 → jti 블랙리스트 확인 → memberId 강제로그아웃 확인
+  → claims만으로 CustomUserDetails 구성 (매 요청 DB 조회 없음, Redis 조회 2회)
   ※ 권한 변경(GUEST→USER 등)은 reissue 후 새 AT부터 반영됨
 
 [재발급 — RT 로테이션 + grace 30초]
@@ -64,6 +65,15 @@ POST /api/auth/reissue  (RT 쿠키 자동 전송)
 POST /api/auth/logout  (authenticated — auth 하위의 유일한 예외)
   → refresh + grace 삭제, AT jti 블랙리스트, RT 쿠키 삭제
 
+[회원 탈퇴 — 자진·강제 공용]
+DELETE /api/members/me  (본인)  /  DELETE /api/admin/members/{memberId}  (관리자, ADMIN 계정 대상 불가)
+  → soft delete + refresh/grace 삭제 + forceLogout 마커 등록(AT 최대 수명만큼)
+  → ⚠️ 재발급 차단뿐 아니라 다른 탭·기기의 기발급 AT도 즉시 차단됨 (5절 참고)
+
+[관리자 계정 복구]
+PATCH /api/admin/members/{memberId}/restore
+  → deletedAt=null + forceLogout 마커 해제 (DB·Redis 양쪽을 되돌리는 온전한 역연산)
+
 [GUEST 추가정보 → USER 승급]
 PATCH /api/members/me/signup-complete  (hasRole GUEST)
   → 닉네임 중복 검사 → updateExtraInfo → USER 승급
@@ -74,7 +84,7 @@ POST /api/auth/password/reset-request  { email }
   → 이메일 존재 여부와 무관하게 항상 동일 성공 응답 (열거 공격 방지)
   → 대상일 때만 메일 발송: {프론트}/reset-password?token={uuid}  (Redis 30분)
 POST /api/auth/password/reset  { token, newPassword }
-  → 일회용 토큰 검증 → 변경 → 전 세션 무효화(재로그인 필요)
+  → 일회용 토큰 검증 → 탈퇴 회원 여부 확인(탈퇴 시 무효 토큰과 동일 응답) → 변경 → 전 세션 무효화(재로그인 필요)
 ```
 
 ---
@@ -121,6 +131,7 @@ public ResponseEntity<ApiResponse<MemberResponse>> getMyInfo(
 2. 회원 엔티티가 필요하면 `memberRepository.findById(memberId).orElseThrow(...)`.
 3. **요청 body나 파라미터로 memberId를 받지 마세요** — body의 memberId를 믿으면 타인 정보 조작이 가능합니다. 항상 토큰에서 추출합니다.
 4. `CustomUserDetails`에는 email이 없습니다 (AT claims 최소화 설계). email이 필요하면 memberId로 조회하세요.
+5. **`SecurityContextHolder`는 ThreadLocal 기반입니다.** `@Async` 등 별도 스레드에서 `SecurityUtil.getMemberId()`를 호출하지 마세요 — 새 스레드에는 컨텍스트가 없어 즉시 인증 예외가 발생합니다. 비동기 로직이 필요하면 부모 스레드에서 memberId를 추출해 **파라미터로 전달**하세요. (위 1번 규칙 — "서비스는 memberId를 파라미터로 받는다" — 이 바로 이 문제의 예방책이기도 합니다.)
 
 ---
 
@@ -143,6 +154,15 @@ public ResponseEntity<ApiResponse<MemberResponse>> getMyInfo(
 
 **grace period 상세**: 브라우저 재시작 등으로 여러 탭이 동시에 reissue하면 전부 구 RT를 들고 옵니다. 첫 요청이 회전시킨 뒤 구 RT를 `graceRefresh`(30초)에 보관해 나머지 요청을 흡수합니다. grace로 통과한 요청은 **재회전하지 않습니다** (회전 체인 방지). 재사용 탐지는 미적용 (grace와 상충, 데모 범위 외).
 
+**강제 로그아웃 (`forceLogout` 마커) — 탈퇴 전용, 회원 단위 즉시 차단**:
+jti 블랙리스트는 "이 토큰은 무효"라는 **토큰 단위** 차단입니다. 그런데 관리자가 제3자를 강제탈퇴시키는 경우, 서버는 그 대상 회원이 지금 어떤 AT를 들고 있는지 알 방법이 없어(브라우저 상태 변수에만 존재) 토큰 단위 차단이 원천적으로 불가능합니다. 이를 위해 **회원 단위** 차단 키 `forceLogout:{memberId}`(TTL = AT 최대 수명, 30분)를 추가했습니다.
+
+- 등록 시점: `withdraw()` 호출 시(soft delete와 함께) — **자진 탈퇴·관리자 강제탈퇴 공용**. 두 경로 모두 "존재하지 않아야 할 주체가 활동을 계속하는" 동일한 문제를 가지므로 같은 처리로 통합했습니다.
+- 검사 시점: `AuthJwtTokenFilter`가 매 요청마다 jti 블랙리스트 확인 직후 memberId 기준으로 확인합니다. 걸리면 인증 미설정 상태로 통과 → 401.
+- 해제 시점: 관리자 복구(`restore()`) 시 DB의 `deletedAt` 복구와 함께 마커도 삭제합니다 — 복구가 DB·Redis 양쪽을 온전히 되돌리는 하나의 역연산이 되도록 설계했습니다.
+- **트레이드오프**: 이 검사로 인증된 요청당 Redis 조회가 2회(jti 블랙리스트 + memberId 마커)로 늘었습니다. AT의 완전한 무상태 원칙을 일부 양보한 것이지만, "관리자가 정지시킨 회원은 즉시 아무것도 할 수 없어야 한다"는 요구를 충족하기 위한 의도적 선택입니다. 적용 범위는 탈퇴로 한정했고(비밀번호 변경 등에는 미적용 — 아래 참고), 실행 중인 요청 1건이 강제 로그아웃 직후에 완료되는 것까지는 막지 않습니다(서블릿 스레드 모델의 경계 — 필터의 목적은 "진입 차단"이지 "실행 중단"이 아닙니다).
+- **비밀번호 변경/재설정에는 미적용**: 그 경우의 "다른 탭 AT 최대 30분 잔존"은 RT 무효화(재발급 차단) + 단일 세션 정책 + AT 자연 만료로 설명 가능한 트레이드오프이며, 탈퇴처럼 "신원 자체가 소멸"하는 질적으로 다른 문제가 아니기 때문입니다.
+
 ---
 
 ## 6. 프론트엔드 연동 가이드
@@ -155,7 +175,7 @@ axios.defaults.withCredentials = true;   // RT 쿠키 전송 필수
 
 **① 부트스트랩** — 앱 마운트 시 `POST /api/auth/reissue` 1회 → 200이면 AT+회원정보로 로그인 복원, 401이면 비로그인. 완료 전 로딩 처리 필수(보호 라우트 진입 방지). 멀티탭 동시 마운트는 서버 grace가 흡수하므로 탭별 독립 부트스트랩으로 충분.
 
-**② 401 인터셉터** — API 401 → reissue → 성공 시 원요청 1회 재시도 / 실패 시 상태 초기화 후 로그인 페이지. 무한 재시도 금지(1회 플래그), reissue 자체의 401은 인터셉터 제외.
+**② 401 인터셉터** — API 401 → reissue → 성공 시 원요청 1회 재시도 / 실패 시 상태 초기화 후 로그인 페이지. 무한 재시도 금지(1회 플래그), reissue 자체의 401은 인터셉터 제외. **403은 재시도 대상이 아닙니다** — 즉시 안내 화면(`/forbidden`)으로 이동.
 
 **③ 필수 라우트 2개** — `/oauth/callback` (reissue 호출 + role 분기: GUEST→추가정보 / error 쿼리 처리), `/reset-password` (쿼리 token으로 재설정 폼).
 
@@ -167,7 +187,9 @@ axios.defaults.withCredentials = true;   // RT 쿠키 전송 필수
 | 비밀번호 변경/재설정 성공 | 상태 초기화 → 로그인 페이지 (전 세션 무효화됨) |
 | 탈퇴 성공 | 상태 초기화 → 홈 (서버가 쿠키/세션 정리 완료) |
 | signup에서 `AUTH_003` | "인증이 만료되었습니다" → 이메일 인증 단계로 복귀 (인증~제출 유효 30분) |
+| signup/email/send에서 `AUTH_006` | "1분에 한 번만 발송 가능" 안내 (재발송 쿨다운) |
 | `AUTH_106` (소셜 콜백 error) | "이미 가입된 이메일" → 일반 로그인 유도 |
+| `AUTH_109` (소셜 콜백 error) | "탈퇴 처리된 계정" → 1:1 문의 안내 |
 | 닉네임 중복확인 | 형식 검증 통과 후에만 `GET /api/auth/nickname/available` 호출 (true=사용가능) |
 
 **⑤ 금지** — AT를 localStorage/sessionStorage에 백업 금지. 소셜 버튼 axios 호출 금지(페이지 이동). RT 쿠키 직접 조작 금지(서버가 관리).
@@ -179,14 +201,16 @@ axios.defaults.withCredentials = true;   // RT 쿠키 전송 필수
 | 키 | TTL | 용도 |
 |----|-----|------|
 | `authCode:{email}` | 3분 | 이메일 인증 코드 |
+| `authCodeAttempt:{email}` | 3분 (코드와 동일) | 인증코드 검증 실패 횟수 — 5회 초과 시 코드 폐기 |
+| `authCodeCooldown:{email}` | 60초 | 인증 메일 재발송 쿨다운 |
 | `verified:{email}` | 30분 | 인증 완료 ~ 가입 유예 (재발송 시 삭제) |
 | `refresh:{memberId}` | 14일 | RT 대조 (회전 시 교체) |
 | `graceRefresh:{memberId}` | 30초 | 동시 reissue 경합 흡수 |
-| `blacklist:{jti}` | AT 잔여시간 | 로그아웃된 AT 차단 |
+| `blacklist:{jti}` | AT 잔여시간 | 로그아웃된 AT 차단 (토큰 단위) |
+| `forceLogout:{memberId}` | AT 최대 수명(30분) | 탈퇴(자진·강제) 회원의 **기발급 AT 전부** 즉시 차단 (회원 단위). 복구 시 삭제 |
 | `resetToken:{uuid}` | 30분 | 비밀번호 재설정 (일회용) |
 
-- TTL은 RedisConfig가 아니라 **서비스 계층에서** 지정. 키 조작은 `RedisTokenService` 한 곳에만 존재 (인증코드/verified는 AuthService).
-- 강제 로그아웃 = `refresh` + `graceRefresh` 삭제 (관리자 강제탈퇴 시 활용 예정).
+- TTL은 RedisConfig가 아니라 **서비스 계층에서** 지정. 키 조작은 `RedisTokenService` 한 곳에만 존재 (인증코드/verified/attempt/cooldown은 AuthService).
 
 ---
 
@@ -199,15 +223,17 @@ axios.defaults.withCredentials = true;   // RT 쿠키 전송 필수
 | `AUTH_001` | 409 | 이미 가입된 이메일 (인증코드 발송/가입) — 탈퇴 회원 이메일 포함 (재가입 불가 정책) |
 | `AUTH_002` | 409 | 닉네임 중복 (가입/추가정보/프로필 수정 공통) |
 | `AUTH_003` | 400 | 이메일 인증 미완료 (30분 초과 포함) |
-| `AUTH_004` | 400 | 인증 코드 불일치/만료 |
+| `AUTH_004` | 400 | 인증 코드 불일치/만료 (5회 초과로 코드가 폐기된 경우 포함) |
 | `AUTH_005` | 500 | 메일 전송 실패 |
+| `AUTH_006` | 429 | 인증 메일 재발송 쿨다운(60초) 이내 재요청 |
 | `AUTH_101` | 401 | 로그인 실패 (계정없음/비번틀림/탈퇴/소셜전용 — 구분 없음) |
-| `AUTH_102` | 401 | 미인증 (토큰 없음/만료/위조/블랙리스트) — EntryPoint |
+| `AUTH_102` | 401 | 미인증 (토큰 없음/만료/위조/블랙리스트/강제로그아웃) — EntryPoint |
 | `AUTH_103` | 403 | 권한 부족 (GUEST의 USER API 등) — AccessDeniedHandler |
 | `AUTH_104` | 401 | RT 재발급 실패 → 재로그인 |
 | `AUTH_106` | 409 | 소셜 이메일이 기존 계정과 충돌 (수동 연동 정책) |
 | `AUTH_107` | 400 | 소셜 이메일 제공 미동의 |
-| `AUTH_108` | 400 | 비밀번호 재설정 토큰 만료/무효 |
+| `AUTH_108` | 400 | 비밀번호 재설정 토큰 만료/무효 (탈퇴 회원의 토큰 사용 포함) |
+| `AUTH_109` | 403 | 탈퇴 처리된 계정의 소셜 로그인 시도 — provider 인증을 통과한 본인에게만 노출되므로 구분 안내 |
 | `MEMBER_001` | 404 | 회원 없음 |
 | `MEMBER_002` | 400 | 이미 추가정보 입력 완료 (USER의 승급 재시도) |
 | `MEMBER_003` | 400 | 이미 탈퇴 처리된 회원 |
@@ -225,14 +251,31 @@ axios.defaults.withCredentials = true;   // RT 쿠키 전송 필수
 
 ---
 
+## 9. 알려진 한계와 의도적으로 보류한 항목
+
+아래는 "몰라서 안 한 것"이 아니라 **인지한 뒤 현 단계(부트캠프 팀 프로젝트, 데모 규모)에서 도입하지 않기로 결정한 항목**입니다. 상세 근거와 실무 전환 시 개선 방안은 `AUTH_SECURITY_IMPROVEMENTS_C.md`에 항목별로 기록되어 있습니다.
+
+- 로그인 응답의 타이밍 사이드채널(이메일 존재 여부 추정 가능성)
+- reissue 회전의 완전 동시 요청 시 원자성 (grace가 대부분의 실사용 케이스를 흡수)
+- `forceLogout`의 이진 마커 방식 (iat 비교 방식이 상위 호환이나 현 요구사항은 키 삭제로 충분)
+- 일반 로그아웃 시 다른 탭/기기 AT의 즉시 차단 (탈퇴와 달리 RT 무효화 + 자연 만료로 설명 가능한 트레이드오프)
+- 로그인 시도 횟수 제한 (BCrypt 연산 비용이 1차 완화 역할)
+- Soft delete 회원의 개인정보 완전 파기 (즉시 마스킹은 계정 복구 기능과 양립 불가 — 유예 후 배치 파기가 정답)
+
+**배포 시 결정 필요 (부록 A 참고)**: RT 쿠키의 `SameSite=Lax`는 프론트/백엔드가 same-site로 배포되는 것을 전제로 CSRF 방어를 겸합니다. 완전히 다른 도메인으로 배포한다면 쿠키 정책과 CSRF 대책을 별도로 재설계해야 합니다.
+
+---
+
 ## 부록 A. 설계 결정 기록
 
 | 결정 | 내용 / 근거 |
 |------|------------|
 | 토큰 저장 방식 A | AT 상태변수 + RT 쿠키/Redis. 헤더 방식이라 CSRF 무관, 배포 도메인 제약 없음 |
 | RT 로테이션 + grace 30초 | 탈취 RT 수명 단축. 참고 프로젝트가 grace 없이 회전만 적용해 멀티탭 경합 버그를 안고 있었음 — grace는 필수 세트 |
+| 강제 로그아웃 마커 (자진·강제 탈퇴 공용) | jti 블랙리스트(토큰 단위)로는 "서버가 대상의 현재 AT를 모르는" 제3자 조치 상황을 막을 수 없어 회원 단위 마커를 병행. "정지된 회원은 즉시 아무것도 할 수 없어야 한다"는 요구 충족이 AT 무상태 원칙보다 우선 |
 | 소셜 수동 연동 (AUTH_106) | 네이버의 이메일은 "연락처 이메일"로 계정 고유값이 아니며 위·변조 가능 → 이메일 기반 자동 연동은 계정 탈취 여지. 연동은 로그인 상태에서만(본인 증명) |
 | 소셜 닉네임 미사용 | 추가정보 입력값만 저장 — 소셜 닉네임 유니크 충돌 문제 원천 차단 |
 | 탈퇴 재가입 불가 | soft delete + uk_member_email 유지가 곧 정책. 별도 로직 없음 |
 | 이메일 존재 비노출 | 로그인(AUTH_101 단일)·비번 재설정(항상 성공 응답)에서 일관 유지. 단 회원가입 email/send의 AUTH_001은 UX상 불가피한 노출. 이메일 중복확인 API는 미제공 |
 | 인가 기본 잠금 | 미등록 API = authenticated. 등록 누락의 결과가 "개방 사고"가 아닌 "401 문의"가 되도록 안전한 방향으로 실패 |
+| 탈퇴 회원의 상태 노출 비대칭 (AUTH_109 vs 로그아웃 처리) | 일반 로그인·비밀번호 재설정은 탈퇴 여부를 비노출(구분 시 열거 공격 재료), 반면 소셜 로그인의 탈퇴 안내는 provider 본인 인증을 통과한 계정 소유자에게만 보이는 응답이라 노출해도 안전 — "누구에게 보이는 응답인가"로 노출 수준을 결정 |

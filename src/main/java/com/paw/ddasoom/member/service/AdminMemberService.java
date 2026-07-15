@@ -7,6 +7,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.paw.ddasoom.auth.domain.LoginLog;
 import com.paw.ddasoom.auth.repository.LoginLogRepository;
+import com.paw.ddasoom.auth.service.RedisTokenService;
+import com.paw.ddasoom.auth.util.JwtUtil;
 import com.paw.ddasoom.common.dto.PageResponse;
 import com.paw.ddasoom.member.domain.Member;
 import com.paw.ddasoom.member.domain.Role;
@@ -28,6 +30,9 @@ public class AdminMemberService {
   private final MemberSocialRepository memberSocialRepository;
   private final LoginLogRepository loginLogRepository;
   private final MemberService memberService;   // getMember, withdraw 재사용
+  private final RedisTokenService redisTokenService;
+  private final JwtUtil jwtUtil;
+
 
   /** 목록 — 탈퇴 회원 포함 전체. 상태 구분은 응답의 deletedAt으로 프론트가 표시 */
   @Transactional(readOnly = true)
@@ -58,7 +63,7 @@ public class AdminMemberService {
       return PageResponse.of(page, LoginLogResponse::from);
   }
 
-  /** 강제 탈퇴 — ADMIN 계정 불가(자기 자신 포함), 기존 withdraw 재사용 (soft delete + 세션 무효화) */
+  /** 강제 탈퇴 — ADMIN 계정 불가(자기 자신 포함). withdraw가 soft delete + RT 삭제 + AT 마커까지 한 세트로 처리 */
   @Transactional
   public void forceWithdraw(Long targetMemberId) {
       Member target = memberService.getMember(targetMemberId);
@@ -69,11 +74,12 @@ public class AdminMemberService {
       memberService.withdraw(targetMemberId);
   }
 
-  /** 계정 복구 — soft delete 역연산. 유니크 제약 유지 정책 덕에 이메일/닉네임 충돌 불가 */
+  /** 계정 복구 — soft delete 역연산 (DB deletedAt + Redis 차단 마커까지가 한 세트) */
   @Transactional
   public AdminMemberResponse restore(Long memberId) {
       Member member = memberService.getMember(memberId);
       member.restore();   // 탈퇴 상태가 아니면 MEMBER_006
+      redisTokenService.clearForceLogout(memberId);   // 복구 = 차단 해제까지
       return AdminMemberResponse.from(member);
   }
 }

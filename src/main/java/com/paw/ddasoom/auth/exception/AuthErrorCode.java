@@ -17,6 +17,8 @@ public enum AuthErrorCode implements ErrorCode{
   EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "AUTH_001", "이미 사용 중인 이메일입니다."),
   NICKNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, "AUTH_002", "이미 사용 중인 닉네임입니다."),
   EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "AUTH_003", "이메일 인증이 완료되지 않았습니다."),
+  AUTH_CODE_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "AUTH_006",
+          "인증 메일은 1분에 한 번만 발송할 수 있습니다. 잠시 후 다시 시도해 주세요."),
   INVALID_AUTH_CODE(HttpStatus.BAD_REQUEST, "AUTH_004", "인증 번호가 일치하지 않거나 만료되었습니다."),
   MAIL_SEND_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH_005", "메일 전송에 실패했습니다."),
 
@@ -37,7 +39,13 @@ public enum AuthErrorCode implements ErrorCode{
    /**---------------------------- 
      회원가입 관련 에러코드 
   ----------------------------- */
-   INVALID_RESET_TOKEN(HttpStatus.BAD_REQUEST, "AUTH_108", "비밀번호 재설정 링크가 만료되었거나 유효하지 않습니다.");
+   INVALID_RESET_TOKEN(HttpStatus.BAD_REQUEST, "AUTH_108", "비밀번호 재설정 링크가 만료되었거나 유효하지 않습니다."),
+
+   /**---------------------------- 
+     회원 탈퇴 관련 에러코드 
+  ----------------------------- */
+   WITHDRAWN_MEMBER(HttpStatus.FORBIDDEN, "AUTH_109",
+          "탈퇴 처리된 계정입니다. 계정 복구를 원하시면 1:1 문의를 이용해 주세요.");
 
 
     private final HttpStatus status;

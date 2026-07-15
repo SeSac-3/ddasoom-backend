@@ -40,6 +40,12 @@ public class AuthService {
   private static final Duration AUTH_CODE_TTL = Duration.ofMinutes(3);   // 메일 문구 "3분"과 일치
   private static final Duration VERIFIED_TTL = Duration.ofMinutes(30);   // 인증 후 가입까지 유예
 
+  private static final int MAX_AUTH_CODE_ATTEMPTS = 5;   // 초과 시 코드 폐기, 재발송 요구
+  private String authCodeAttemptKey(String email) { return "authCodeAttempt:" + email; }
+
+  private static final Duration RESEND_COOLDOWN = Duration.ofSeconds(60);  // 메일 안내 문구와 일치시킬 것
+  private String cooldownKey(String email) { return "authCodeCooldown:" + email; }
+
   // 키 설계
   private String authCodeKey(String email) { return "authCode:" + email; }
   private String verifiedKey(String email) { return "verified:" + email; }
@@ -50,31 +56,43 @@ public class AuthService {
 
   /** 인증 코드 발송 (재발송 겸용) */
   public void sendAuthCode(String email) {
-    // 이미 가입된 이메일이면 코드 발송 자체를 차단
+    if (Boolean.TRUE.equals(redisTemplate.hasKey(cooldownKey(email)))) {
+      throw new AuthException(AuthErrorCode.AUTH_CODE_COOLDOWN);
+    }
     if (memberRepository.existsByEmail(email)) {
-        throw new AuthException(AuthErrorCode.EMAIL_ALREADY_EXISTS);
+      throw new AuthException(AuthErrorCode.EMAIL_ALREADY_EXISTS);
     }
 
-    // 재인증 요청 대비: 기존 인증 완료 상태를 무효화
     redisTemplate.delete(verifiedKey(email));
+    redisTemplate.delete(authCodeAttemptKey(email));   // A-6 연동 — 재발송은 새 시도 기회
 
     String code = String.format("%06d", random.nextInt(1_000_000));
     redisTemplate.opsForValue().set(authCodeKey(email), code, AUTH_CODE_TTL);
 
-    mailUtil.sendAuthCodeEmail(email, code);
-    log.debug("인증 코드 발송 완료 - email: {}", email);
+    mailUtil.sendAuthCodeEmail(email, code);   // 발송 실패 시 여기서 throw — 쿨다운은 미기록
+    redisTemplate.opsForValue().set(cooldownKey(email), "sent", RESEND_COOLDOWN);  // 발송 성공 후에만
   }
 
   /** 인증 코드 검증 → 성공 시 인증 완료 플래그 생성 */
   public void verifyAuthCode(String email, String code) {
     String storedCode = redisTemplate.opsForValue().get(authCodeKey(email));
 
-    // 만료(null)와 불일치를 같은 예외로 처리
-    if (storedCode == null || !storedCode.equals(code)) {
-        throw new AuthException(AuthErrorCode.INVALID_AUTH_CODE);
+    boolean isCodeMismatch = storedCode == null || !storedCode.equals(code);
+    if (isCodeMismatch) {
+      // 실패 카운트 — 코드와 같은 수명으로 만료 (INCR 후 첫 증가 시 TTL 부여)
+      Long attempts = redisTemplate.opsForValue().increment(authCodeAttemptKey(email));
+      if (attempts != null && attempts == 1) {
+        redisTemplate.expire(authCodeAttemptKey(email), AUTH_CODE_TTL);
+      }
+      // 5회 초과 → 브루트포스 간주, 코드 자체를 폐기 (재발송부터 다시)
+      if (attempts != null && attempts >= MAX_AUTH_CODE_ATTEMPTS) {
+        redisTemplate.delete(authCodeKey(email));
+      }
+      throw new AuthException(AuthErrorCode.INVALID_AUTH_CODE);
     }
 
     redisTemplate.delete(authCodeKey(email));
+    redisTemplate.delete(authCodeAttemptKey(email));   // 성공 시 카운터도 정리
     redisTemplate.opsForValue().set(verifiedKey(email), "true", VERIFIED_TTL);
   }
 
@@ -141,6 +159,12 @@ public class AuthService {
 
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new AuthException(AuthErrorCode.INVALID_RESET_TOKEN));
+
+        // 재설정 링크 발급 후 탈퇴한 계정 — 발송 단계(sendPasswordResetLink)와 동일 기준으로 차단.
+        // 탈퇴 사실을 노출하지 않기 위해 전용 코드 대신 "무효 토큰"과 동일 응답으로 합친다.
+        if (member.isDeleted()) {
+        throw new AuthException(AuthErrorCode.INVALID_RESET_TOKEN);
+        }
 
         member.changePassword(passwordEncoder.encode(newPassword));
 
