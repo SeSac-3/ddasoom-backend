@@ -1,13 +1,13 @@
 package com.paw.ddasoom.animal.service;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.paw.ddasoom.animal.domain.Animal;
 import com.paw.ddasoom.animal.exception.AnimalErrorCode;
 import com.paw.ddasoom.animal.exception.AnimalException;
 import com.paw.ddasoom.animal.repository.AnimalRepository;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service

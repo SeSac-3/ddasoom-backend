@@ -11,6 +11,5 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @RequestMapping("/api/admin/foster")
 public class FosterAdminController {
-  private final FosterAdminService fosterAdminService;
 
 }

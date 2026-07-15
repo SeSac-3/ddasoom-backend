@@ -36,6 +36,20 @@ public class LoginService {
   /** 로그인 결과 — 컨트롤러가 RT로 쿠키를 조립하고, response만 body로 내림 */
   public record LoginResult(LoginResponse response, String refreshToken) {}
 
+    /**
+   * BCrypt 비교 — 입력이 72바이트를 초과하면 버전에 따라 IllegalArgumentException을 던질 수 있음.
+   * LoginRequest.password는 형식 검증이 없어(@Pattern 미적용, 길이만 @Size(max=64) 제한) 멀티바이트
+   * 문자(한글 등)로 64자를 채우면 바이트 수가 72를 넘을 수 있다 — 이 경우도 "불일치"로 수렴시켜
+   * 로그인 실패 단일화(AUTH_101) 정책을 유지한다.
+   */
+  private boolean matchesPassword(String rawPassword, String encodedPassword) {
+      try {
+          return passwordEncoder.matches(rawPassword, encodedPassword);
+      } catch (IllegalArgumentException e) {
+          return false;
+      }
+  }
+
   /**
    * 일반 로그인.
    * 계정 없음/비밀번호 불일치/탈퇴 회원을 전부 INVALID_CREDENTIALS(401) 하나로 응답
@@ -50,7 +64,7 @@ public class LoginService {
 
       boolean isLoginBlocked = member.isDeleted()
               || member.getPassword() == null   // 소셜 전용 회원 — 비밀번호 로그인 불가
-              || !passwordEncoder.matches(request.getPassword(), member.getPassword());
+              || !matchesPassword(request.getPassword(), member.getPassword());
       if (isLoginBlocked) {
           throw new AuthException(AuthErrorCode.INVALID_CREDENTIALS);
       }

@@ -13,6 +13,7 @@ import com.paw.ddasoom.auth.exception.AuthErrorCode;
 import com.paw.ddasoom.auth.exception.AuthException;
 import com.paw.ddasoom.auth.repository.LoginLogRepository;
 import com.paw.ddasoom.auth.service.RedisTokenService;
+import com.paw.ddasoom.auth.util.JwtUtil;
 import com.paw.ddasoom.common.dto.PageResponse;
 import com.paw.ddasoom.member.domain.Member;
 import com.paw.ddasoom.member.domain.Role;
@@ -35,6 +36,7 @@ public class MemberService {
   private final RedisTokenService redisTokenService;
   private final PasswordEncoder passwordEncoder;
   private final LoginLogRepository loginLogRepository;
+  private final JwtUtil jwtUtil; 
 
 
   /**
@@ -117,18 +119,16 @@ public class MemberService {
       redisTokenService.deleteRefreshTokens(memberId);
   }
 
-  /**
-   * 회원 탈퇴 — soft delete + 전 세션 무효화.
-   * 정책(팀 결정 A): 탈퇴 이메일 재가입 불가 (soft delete + uk_member_email 유지가 곧 정책)
-   * AT 블랙리스트는 컨트롤러가 헤더에서 추출해 전달 (LoginService.logout과 동일 구조)
-   */
+ /** 회원 탈퇴 (자진·강제 공용) — soft delete + 세션 완전 정리 */
   @Transactional
   public void withdraw(Long memberId) {
       Member member = getMember(memberId);
-      member.softDelete();   // 이미 탈퇴 상태면 엔티티가 ALREADY_DELETED_MEMBER throw
+      member.softDelete();
 
-      // 세션 정리 ①: RT + grace 삭제 → 이후 reissue 전부 차단
+      // 세션 정리: ① RT+grace 삭제 (재발급 차단)
       redisTokenService.deleteRefreshTokens(memberId);
+      // ② 이미 발급된 모든 AT 즉시 차단 — 다른 탭/기기 포함 (탈퇴 회원의 활동 창 제거)
+      redisTokenService.markForceLogout(memberId, jwtUtil.getAccessTokenValidityMillis());
   }
 
 }

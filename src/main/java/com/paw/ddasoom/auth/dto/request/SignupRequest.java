@@ -8,6 +8,7 @@ import com.paw.ddasoom.member.domain.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -28,6 +29,7 @@ public class SignupRequest {
           regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#])[A-Za-z\\d@$!%*?&#]{8,}$",
           message = "비밀번호는 대소문자, 숫자, 특수문자 포함 8자 이상이어야 합니다."
   )
+  @Size(max = 64, message = "비밀번호는 64자 이하여야 합니다.")
   private String password;
 
   @NotBlank(message = "이름은 필수입니다.")

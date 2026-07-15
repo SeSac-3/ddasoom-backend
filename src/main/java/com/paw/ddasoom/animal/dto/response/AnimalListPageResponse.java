@@ -1,5 +1,5 @@
 package com.paw.ddasoom.animal.dto.response;
 
-public record AnimalLikeResponse() {
+public record AnimalListPageResponse() {
 
 }

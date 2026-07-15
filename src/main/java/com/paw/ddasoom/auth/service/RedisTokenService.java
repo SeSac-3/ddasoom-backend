@@ -19,10 +19,18 @@ public class RedisTokenService {
   private String refreshKey(Long memberId) { return "refresh:" + memberId; }
   private String graceKey(Long memberId) { return "graceRefresh:" + memberId; }
   private String blacklistKey(String jti) { return "blacklist:" + jti; }
+  // 강제 로그아웃(관리자 강제탈퇴 등) — 대상 회원의 AT를 "무엇인지 몰라도" 즉시 무효화하기 위한 회원 단위 차단.
+  // jti 블랙리스트(토큰 단위)로는 "제3자가 그 사람의 현재 AT가 뭔지 모르는" 상황을 못 막아서 별도 설계.
+  private String forceLogoutKey(Long memberId) { return "forceLogout:" + memberId; }
 
   // 비밀번호 재설정 토큰 — 메일 문구 "30분"과 일치
   private static final Duration RESET_TOKEN_TTL = Duration.ofMinutes(30);
   private String resetTokenKey(String token) { return "resetToken:" + token; }
+
+  /** 계정 복구 시 강제 로그아웃 마커 해제 — restore가 마커 TTL보다 먼저 오는 경우 필수 (A-1) */
+  public void clearForceLogout(Long memberId) {
+      redisTemplate.delete(forceLogoutKey(memberId));
+  }
 
   // ── Refresh Token ──
   public void saveRefreshToken(Long memberId, String refreshToken, Duration ttl) {
@@ -48,6 +56,18 @@ public class RedisTokenService {
   public void deleteRefreshTokens(Long memberId) {
       redisTemplate.delete(refreshKey(memberId));
       redisTemplate.delete(graceKey(memberId));
+  }
+
+  /** AT 최대 수명만큼만 걸어두면 충분 — 그 이후엔 자연 만료라 굳이 영구 차단할 필요 없음 */
+  public void markForceLogout(Long memberId, long ttlMillis) {
+      if (ttlMillis <= 0) {
+          return;
+      }
+      redisTemplate.opsForValue().set(forceLogoutKey(memberId), "forced", Duration.ofMillis(ttlMillis));
+  }
+
+  public boolean isForceLogout(Long memberId) {
+      return redisTemplate.hasKey(forceLogoutKey(memberId));
   }
 
   // ── Blacklist (로그아웃된 AT의 jti, 남은 유효시간만큼) ──

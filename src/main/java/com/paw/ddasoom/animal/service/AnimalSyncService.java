@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.paw.ddasoom.animal.domain.Animal;
 import com.paw.ddasoom.animal.domain.AnimalGender;
@@ -15,7 +16,7 @@ import com.paw.ddasoom.animal.repository.AnimalRepository;
 import com.paw.ddasoom.animal.util.AnimalDateConverter;
 import com.paw.ddasoom.animal.util.AnimalNicknameGenerator;
 
-import jakarta.transaction.Transactional;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

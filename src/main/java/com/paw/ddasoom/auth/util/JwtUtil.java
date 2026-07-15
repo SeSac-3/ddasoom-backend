@@ -42,6 +42,11 @@ public class JwtUtil {
       return createToken(memberId, CATEGORY_REFRESH, refreshTokenValidity, null);
   }
 
+  // 클래스 내 이미 AT TTL을 정의한 필드가 있다면 그 필드를 재사용 — 새 상수를 중복 선언하지 않는다
+  public long getAccessTokenValidityMillis() {
+      return accessTokenValidity; // 필드명은 실제 클래스의 AT TTL 필드명에 맞춰 조정
+  }
+
   private String createToken(Long memberId, String category, long validity, Role role) {
       Date now = new Date();
       var builder = Jwts.builder()
