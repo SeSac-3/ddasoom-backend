@@ -180,6 +180,7 @@ return ResponseEntity.badRequest().body(ApiResponse.error(...));   // 예외를 
 | 403 | 권한 부족 (GUEST가 USER 전용 API 접근 등) |
 | 404 | 리소스 없음 (MEMBER_NOT_FOUND 등) |
 | 409 | 중복 충돌 (EMAIL_ALREADY_EXISTS 등) |
+| 429 | 요청 빈도 제한 (AUTH_006 — 인증 메일 재발송 쿨다운 등) |
 | 500 | 서버 오류 (MAIL_SEND_FAILED, GLOBAL_ERROR) |
 
 ---
@@ -237,7 +238,7 @@ throw new FosterException(FosterErrorCode.FOSTER_NOT_FOUND);
 - 다른 도메인의 예외를 던지는 것은 그 도메인의 사실을 표현할 때 허용합니다.
   (예: AuthService가 "회원 없음"을 표현할 때 `MemberException(MEMBER_NOT_FOUND)` 사용 가능)
 - 만료와 불일치처럼 **보안상 구분을 노출하면 안 되는 경우 하나의 에러코드로 합칩니다.**
-  (예: `INVALID_AUTH_CODE` — "일치하지 않거나 만료되었습니다")
+  (예: `INVALID_AUTH_CODE` — "일치하지 않거나 만료되었습니다", `INVALID_RESET_TOKEN` — 토큰 무효/만료/탈퇴 회원 통합)
 
 ---
 
@@ -249,6 +250,10 @@ throw new FosterException(FosterErrorCode.FOSTER_NOT_FOUND);
 - 외부 I/O(메일 발송 등)가 트랜잭션 실패로 이어지면 안 되는 경우, try-catch로 격리하고 로그만 남깁니다.
   (예: 회원가입 성공 후 환영 메일 실패 → 가입은 성공 처리)
 - Repository 메서드는 Spring Data JPA 쿼리 메서드 네이밍을 따릅니다. (`findByEmail`, `existsByNickname`)
+- **`@Async` 등 별도 스레드에서 `SecurityUtil.getMemberId()`(또는 `SecurityContextHolder` 직접 접근)를 호출하지 않습니다.**
+  `SecurityContextHolder`는 ThreadLocal 기반이라 새로 생성된 스레드에는 인증 컨텍스트가 없어 즉시 예외가 발생합니다.
+  비동기 로직이 필요하면 부모 스레드에서 memberId 등 필요한 값을 추출해 **파라미터로 전달**하세요.
+  (위 "서비스 메서드는 memberId를 파라미터로 받는다"는 관례가 이 문제의 구조적 예방책이기도 합니다.)
 
 ---
 
