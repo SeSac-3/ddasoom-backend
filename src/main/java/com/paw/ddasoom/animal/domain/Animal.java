@@ -97,16 +97,6 @@ public class Animal extends BaseTimeEntity {
   @Column(name = "rescued_at", columnDefinition = "DATETIME(6)")
   private LocalDateTime rescuedAt; // 서비스 로직에서 명시적 세팅, 자동화 금지
 
-  public void increaseLikeCount() {
-    this.likeCount++;
-  }
-
-  public void decreaseLikeCount() {
-    if (likeCount > 0) {
-        this.likeCount--;
-    }
-  }
-
   public void markAsFostered() {
     this.isFostered = true;
   }
@@ -146,12 +136,7 @@ public class Animal extends BaseTimeEntity {
     this.rescuedAt = rescuedAt;
   }
 
-  // 2. Write-Behind 배치 전용 — 다른 필드는 건드리지 않음
-  public void updateLikeCount(int likeCount) {
-    this.likeCount = likeCount;
-  }
-
-  // 3. foster 도메인 전용 — 다른 필드는 건드리지 않음
+  // 2. foster 도메인 전용 — 다른 필드는 건드리지 않음
   public void updateFosteredStatus(boolean isFostered) {
     this.isFostered = isFostered;
   }
