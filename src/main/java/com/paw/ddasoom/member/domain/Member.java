@@ -52,6 +52,10 @@ public class Member extends BaseTimeEntity{
   @Column(nullable = false, length = 20)
   private Role role;
 
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 20)
+  private EventStatus eventStatus;
+
   @Column(columnDefinition = "DATETIME(6)")
   private LocalDateTime deletedAt;
 
@@ -63,6 +67,7 @@ public class Member extends BaseTimeEntity{
       this.nickname = nickname;
       this.tel = tel;
       this.role = role != null ? role : Role.GUEST;
+      this.eventStatus = EventStatus.NONE;   // 신규 회원 기본 상태
   }
 
   // 리치도메인 메서드 -> SNS 회원가입 추가 정보 수용 + Update
@@ -105,6 +110,11 @@ public class Member extends BaseTimeEntity{
         throw new MemberException(MemberErrorCode.NOT_DELETED_MEMBER);
     }
     this.deletedAt = null;
+  }
+
+  // 리치도메인 메서드 -> 이벤트 참여 상태 변경 (board 도메인이 게시글 작성 수 기준으로 호출)
+  public void updateEventStatus(EventStatus eventStatus) {
+      this.eventStatus = eventStatus;
   }
 
 }
