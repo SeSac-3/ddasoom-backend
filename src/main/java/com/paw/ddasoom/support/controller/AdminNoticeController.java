@@ -31,27 +31,27 @@ import com.paw.ddasoom.support.dto.response.NoticeResponse;
 import com.paw.ddasoom.support.dto.response.NoticeSummaryResponse;
 
 @RestController
-@RequestMapping("/admin/notices")
+@RequestMapping("/api/admin/notices")
 @RequiredArgsConstructor
 public class AdminNoticeController {
 
-  private final NoticeService noticeService;
+    private final NoticeService noticeService;
 
-  // 1. 관리자용 공지사항 목록 조회
-  @GetMapping
-  public ResponseEntity<ApiResponse<PageResponse<NoticeSummaryResponse>>> getAdminNotices(
-          @PageableDefault(size = 10) Pageable pageable) {
-      return ResponseEntity.ok(ApiResponse.success(noticeService.getAdminNotices(pageable)));
-  }
+    // 1. 관리자용 공지사항 목록 조회
+    @GetMapping
+    public ResponseEntity<ApiResponse<PageResponse<NoticeSummaryResponse>>> getAdminNotices(
+            @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success(noticeService.getAdminNotices(pageable)));
+    }
 
-  // 2. 공지사항 상세 조회
-  @GetMapping("/{noticeId}")
-  public ResponseEntity<ApiResponse<NoticeResponse>> getAdminNotice(@PathVariable Long noticeId) {
-    return ResponseEntity.ok(ApiResponse.success(noticeService.getAdminNotice(noticeId)));
-  }
+    // 2. 공지사항 상세 조회
+    @GetMapping("/{noticeId}")
+    public ResponseEntity<ApiResponse<NoticeResponse>> getAdminNotice(@PathVariable Long noticeId) {
+        return ResponseEntity.ok(ApiResponse.success(noticeService.getAdminNotice(noticeId)));
+    }
 
   // 3. 공지사항 등록
-  @PostMapping
+    @PostMapping
     public ResponseEntity<ApiResponse<NoticeResponse>> createNotice(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody NoticeCreateRequest request) {

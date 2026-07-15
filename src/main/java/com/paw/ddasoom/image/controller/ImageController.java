@@ -20,6 +20,7 @@ public class ImageController {
 
     private final ImageService imageService;
 
+    /** 이미지 업로드 - OwnerType 필요 (게시글, qna, 공지사항, 유기동물 정보 등)*/
     @PostMapping
     public ResponseEntity<ApiResponse<ImageResponse>> upload(
             @RequestParam MultipartFile file,

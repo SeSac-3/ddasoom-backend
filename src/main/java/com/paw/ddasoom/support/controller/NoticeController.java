@@ -21,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class NoticeController {
 
-  private final NoticeService noticeService;
+    private final NoticeService noticeService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<NoticeSummaryResponse>>> getNotices(

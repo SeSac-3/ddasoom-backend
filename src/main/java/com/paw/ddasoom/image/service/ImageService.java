@@ -201,4 +201,24 @@ public class ImageService {
         target.markAsThumbnail();
     }
 
+    /**
+     * 여러 소유자의 썸네일 URL 배치 조회 — 목록 화면 전용 (게시글 수와 무관하게 쿼리 1번, N+1 방지).
+     * 썸네일이 없는 소유자는 Map에 키 자체가 없음 → 호출부의 get()이 null 반환 (프론트가 기본 이미지 처리)
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, String> getThumbnailUrls(OwnerType ownerType, List<Long> ownerIds) {
+        if (ownerIds == null || ownerIds.isEmpty()) {
+            return Map.of();  // 빈 페이지 조회 시 불필요한 쿼리 방지 (attach의 조기 return과 같은 방어)
+        }
+
+        List<Image> thumbnails = imageRepository
+                .findAllByOwnerTypeAndOwnerIdInAndIsThumbnailTrueAndDeletedAtIsNull(ownerType, ownerIds);
+
+        return thumbnails.stream()
+                .collect(Collectors.toMap(
+                        Image::getOwnerId,
+                        image -> minioUtil.getUrl(ownerType, image.getImageKey())
+                ));
+    }
+
 }

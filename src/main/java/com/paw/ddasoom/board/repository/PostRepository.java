@@ -2,7 +2,7 @@ package com.paw.ddasoom.board.repository;
 
 import com.paw.ddasoom.board.domain.BoardType;
 import com.paw.ddasoom.board.domain.Post;
-import com.paw.ddasoom.board.dto.projection.PostListDto;
+import com.paw.ddasoom.board.dto.projection.PostListProjection;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,18 +18,18 @@ public interface PostRepository extends JpaRepository<Post, Long> {
      * member는 JOIN으로 닉네임만 평면화(N+1 방지).
      */
     @Query("""
-        SELECT NEW com.paw.ddasoom.board.dto.projection.PostListDto(
-            p.id, p.category, p.title, SUBSTRING(p.content, 1, 200),
-            p.viewCount, p.commentCount, p.createdAt,
-            m.id, m.nickname)
-        FROM Post p
-        JOIN p.member m
-        WHERE p.boardType = :boardType
-          AND p.category = :category
-          AND p.deletedAt IS NULL
-        ORDER BY p.createdAt DESC
-        """)
-    Page<PostListDto> findPostList(
+    SELECT NEW com.paw.ddasoom.board.dto.projection.PostListProjection(
+        p.id, p.category, p.title, SUBSTRING(p.content, 1, 200),
+        p.viewCount, p.commentCount, p.createdAt,
+        m.id, m.nickname)
+    FROM Post p
+    JOIN p.member m
+    WHERE p.boardType = :boardType
+      AND p.category = :category
+      AND p.deletedAt IS NULL
+    ORDER BY p.createdAt DESC
+    """)
+    Page<PostListProjection> findPostList(
             @Param("boardType") BoardType boardType,
             @Param("category") String category,
             Pageable pageable);

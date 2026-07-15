@@ -6,6 +6,8 @@ import com.paw.ddasoom.common.util.BaseTimeEntity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -19,16 +21,16 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "faq")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Faq extends BaseTimeEntity{
+public class Faq extends BaseTimeEntity {
 
-  
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "faq_id")
     private Long id;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private String category;
+    private FaqCategory category;
 
     @Column(nullable = false, length = 255)
     private String question;
@@ -43,14 +45,14 @@ public class Faq extends BaseTimeEntity{
     private LocalDateTime deletedAt;
 
     @Builder
-    public Faq(String category, String question, String answer) {
+    public Faq(FaqCategory category, String question, String answer) {
         this.category = category;
         this.question = question;
         this.answer = answer;
     }
 
     /* [FAQ 내용 수정] */
-    public void update(String category, String question, String answer) {
+    public void update(FaqCategory category, String question, String answer) {
         this.category = category;
         this.question = question;
         this.answer = answer;

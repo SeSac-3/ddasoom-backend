@@ -63,7 +63,7 @@ public class NoticeService {
     return PageResponse.of(noticePage, NoticeSummaryResponse::from);
   }
 
-  // 2) 공지사항 상제 조회
+  // 2) 공지사항 상세 조회
   @Transactional(readOnly = true)
   public NoticeResponse getAdminNotice(Long noticeId) {
       return NoticeResponse.from(getNoticeEntity(noticeId));
@@ -82,8 +82,9 @@ public class NoticeService {
       .content(request.getContent())
       .build();
 
-    // 3-2) DB 저장 이후 Response DTO 변환 후 반환
-    return NoticeResponse.from(noticeRepository.save(notice));
+    // 3-2) DB 저장 이후 Response DTO 생성 후 반환
+    Notice savedNotice = noticeRepository.save(notice);
+    return NoticeResponse.from(savedNotice);
   }
   
   // 4) 공지사항 수정
@@ -91,6 +92,7 @@ public class NoticeService {
   public NoticeResponse updateNotice(Long noticeId, NoticeUpdateRequest request) {
     Notice notice = getNoticeEntity(noticeId);
     notice.update(request.getTitle(), request.getContent());
+    noticeRepository.flush();
     return NoticeResponse.from(notice);
   }
 

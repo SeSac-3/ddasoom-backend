@@ -18,16 +18,18 @@ public class PageResponse<T> {
   private long totalElements;
   private int totalPages;
   private boolean hasNext;
+  private boolean hasPrevious;
 
   public static <E, T> PageResponse<T> of(Page<E> page, Function<E, T> mapper) {
     return PageResponse.<T>builder()
-        .content(page.getContent().stream().map(mapper).toList())
-        .page(page.getNumber())
-        .size(page.getSize())
-        .totalElements(page.getTotalElements())
-        .totalPages(page.getTotalPages())
-        .hasNext(page.hasNext())
-        .build();
+            .content(page.getContent().stream().map(mapper).toList())
+            .page(page.getNumber())
+            .size(page.getSize())
+            .totalElements(page.getTotalElements())
+            .totalPages(page.getTotalPages())
+            .hasNext(page.hasNext())
+            .hasPrevious(page.hasPrevious())
+            .build();
   }
 
 }

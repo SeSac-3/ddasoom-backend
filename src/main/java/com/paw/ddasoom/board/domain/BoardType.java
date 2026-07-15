@@ -1,10 +1,9 @@
 package com.paw.ddasoom.board.domain;
 
-/**
- * 게시판 종류.
- * DB에는 VARCHAR(30)로 저장 (@Enumerated(EnumType.STRING) — DB 컨벤션 6장: ENUM 타입 금지)
- */
+
+/** 보드 내 세부 카테고리 (예: 예방접종) — 종(강아지/고양이)은 boardType으로 분리됨. 값 목록 확정 전이라 String 유지 */
 public enum BoardType {
     ADOPTION_REVIEW,   // 입양 후기
-    PET_INFO           // 반려 정보
+    DOG_INFO, // 강아지 정보
+    CAT_INFO // 고양이 정보
 }

@@ -22,7 +22,10 @@ public enum BoardErrorCode implements ErrorCode {
     COMMENT_DEPTH_EXCEEDED(HttpStatus.BAD_REQUEST, "BOARD_006", "대댓글을 더 이상 작성할 수 없습니다."),
 
     // 대댓글 관련 에러코드
-    PARENT_COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "BOARD_007", "해당 대댓글은 없는 대댓글입니다.");
+    PARENT_COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "BOARD_007", "해당 대댓글은 없는 대댓글입니다."),
+
+    // 카테고리 관련 에러코드
+    INVALID_CATEGORY(HttpStatus.BAD_REQUEST, "BOARD_008", "허용된 카테고리가 아닙니다.");
 
     private final HttpStatus status;
     private final String code;
