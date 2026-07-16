@@ -15,16 +15,20 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.paw.ddasoom.animal.domain.Animal;
 import com.paw.ddasoom.animal.domain.AnimalGender;
 import com.paw.ddasoom.animal.domain.AnimalKind;
 import com.paw.ddasoom.animal.dto.request.AnimalListPageRequest;
 import com.paw.ddasoom.animal.dto.request.AnimalNicknameUpdateRequest;
+import com.paw.ddasoom.animal.dto.response.AnimalDetailPageResponse;
 import com.paw.ddasoom.animal.dto.response.AnimalListPageResponse;
+import com.paw.ddasoom.animal.dto.response.AnimalMainPageResponse;
+import com.paw.ddasoom.animal.dto.response.AnimalMyPageResponse;
+import com.paw.ddasoom.animal.service.AnimalDetailService;
 import com.paw.ddasoom.animal.service.AnimalLikeService;
-import com.paw.ddasoom.animal.service.AnimalListPageServiceImpl;
+import com.paw.ddasoom.animal.service.AnimalListPageService;
+import com.paw.ddasoom.animal.service.AnimalMainPageService;
+import com.paw.ddasoom.animal.service.AnimalMyPageService;
 import com.paw.ddasoom.animal.service.AnimalNicknameService;
-import com.paw.ddasoom.animal.service.AnimalSyncService;
 import com.paw.ddasoom.common.dto.ApiResponse;
 import com.paw.ddasoom.common.dto.PageResponse;
 import com.paw.ddasoom.common.security.CustomUserDetails;
@@ -40,26 +44,14 @@ import lombok.extern.slf4j.Slf4j;
 public class AnimalController {
 
   private final AnimalNicknameService animalNicknameService;
-  private final AnimalSyncService animalSyncService;
-  private final AnimalLikeService animalLikeService;
-  private final AnimalListPageServiceImpl animalListPageServiceImpl;
-
-  /**
-   * API에서 받아온 모든 동물 정보를 DB에 저장 (관리자용/동기화용)
-   * @return Httpstatus, message, DTO
-   */
-  @PostMapping("/sync")
-  public ResponseEntity<ApiResponse<Void>> syncAnimals() {
-      List<Animal> savedAnimals = animalSyncService.syncAnimals();
-      log.info("API 동물 {}건이 DB에 저장/갱신되었습니다.", savedAnimals.size());
-      return ResponseEntity.ok(ApiResponse.success("API 유기동물이 DB에 저장/갱신되었습니다."));
-  }
+  private final AnimalLikeService animalLikeService; // 좋아요 서비스 (공부해야함)
+  private final AnimalListPageService animalListPageService;
+  private final AnimalDetailService animalDetailService;
+  private final AnimalMyPageService animalMyPageService;
+  private final AnimalMainPageService animalMainPageService;
 
   /**
    * 닉네임 이름 수정 요청 시, 변경된 닉네임 저장 (임보 보호자용)
-   * @param animalId
-   * @param request
-   * @return Httpstatus, message, DTO
    */
   @PatchMapping("/{animalId}/nickname")
   public ResponseEntity<ApiResponse<Void>> updateNickname(
@@ -71,11 +63,7 @@ public class AnimalController {
   }
 
   /**
-   * 좋아요 버튼 클릭 시, 좋아요 카운트 업데이트
-   * @param animalId
-   * @param userDetails
-   * @param request
-   * @return Httpstatus, message,
+   * 좋아요 버튼 클릭 시 (Redis dirty 기록 — 배치가 RDB 반영)
    */
   @PostMapping("/{animalId}/likes")
   public ResponseEntity<ApiResponse<Void>> like(
@@ -87,10 +75,7 @@ public class AnimalController {
   }
 
   /**
-   * 좋아요 취소 시, 좋아요 카운트 업데이트
-   * @param animalId
-   * @param userDetails
-   * @return
+   * 좋아요 취소 시
    */
   @DeleteMapping("/{animalId}/likes")
   public ResponseEntity<ApiResponse<Void>> unlike(
@@ -102,24 +87,21 @@ public class AnimalController {
   }
 
   /**
-   * 메인화면에서 유기동물 더 보기 클릭 시
-   * 배너에서 유기동물 조회 클릭 시
-   * 리스트 페이지에서 토글 선택 후 검색 클릭 시 -> 필터링
-   * @return
+   * 유기동물 목록 조회 (동적 검색 + 페이징). 공개 API — 로그인 시 isLiked 계산.
    */
   @GetMapping("/list")
   public ResponseEntity<ApiResponse<PageResponse<AnimalListPageResponse>>> showAnimalList(
-    // @RequestParam의 받아올 값을 Enum값으로 설정하면, WebConfig의 converter에서 컨트롤러에서 컨트롤러 진입 전에 Enum으로 바꿔놓음
-    @RequestParam(name = "kind", required = false) AnimalKind kind, 
+    @RequestParam(name = "kind", required = false) AnimalKind kind,
     @RequestParam(name = "location", required = false) String location,
-    @RequestParam(name = "isFostered", required = false) boolean isFostered,
-    @RequestParam(name = "isLiked", required = false) boolean isLiked,
+    // primitive boolean은 미전달 시 항상 false로 바인딩돼 "필터 미적용"이 불가능 → Boolean으로 받아 null 허용
+    @RequestParam(name = "isFostered", required = false) Boolean isFostered,
+    @RequestParam(name = "isLiked", required = false) Boolean isLiked,
     @RequestParam(name = "gender", required = false) AnimalGender gender,
     @AuthenticationPrincipal(errorOnInvalidType = false) CustomUserDetails userDetails,
     @RequestParam(name = "page", defaultValue = "0") int page,
     @RequestParam(name = "size", defaultValue = "10") int size
   ) {
-    // requrest params가 많아서 dto로 담아서 보냄
+    Long memberId = userDetails != null ? userDetails.getMemberId() : null;
     AnimalListPageRequest request = AnimalListPageRequest.builder()
       .kind(kind)
       .location(location)
@@ -127,7 +109,41 @@ public class AnimalController {
       .isLiked(isLiked)
       .gender(gender)
       .build();
-    return ResponseEntity.ok(ApiResponse.success(animalListPageServiceImpl.search(request, PageRequest.of(page, size))));
+    return ResponseEntity.ok(ApiResponse.success(
+        animalListPageService.search(request, memberId, PageRequest.of(page, size))));
   }
-  
+
+  /**
+   * 메인페이지 미리보기 — 최근 등록 4건 (공개, 비로그인 노출)
+   */
+  @GetMapping("/main")
+  public ResponseEntity<ApiResponse<List<AnimalMainPageResponse>>> getMainPreview() {
+    return ResponseEntity.ok(ApiResponse.success(animalMainPageService.getMainPreview()));
+  }
+
+  /**
+   * 유기동물 상세 조회. 공개 API — 로그인 시 isLiked 계산.
+   */
+  @GetMapping("/{animalId}")
+  public ResponseEntity<ApiResponse<AnimalDetailPageResponse>> getAnimalDetail(
+    @PathVariable Long animalId,
+    @AuthenticationPrincipal(errorOnInvalidType = false) CustomUserDetails userDetails
+  ) {
+    Long memberId = userDetails != null ? userDetails.getMemberId() : null;
+    return ResponseEntity.ok(ApiResponse.success(
+        animalDetailService.getDetail(animalId, memberId)));
+  }
+
+  /**
+   * 마이페이지 — 내가 좋아요한 동물 목록 (인증 필요)
+   */
+  @GetMapping("/me/likes")
+  public ResponseEntity<ApiResponse<PageResponse<AnimalMyPageResponse>>> getMyLikedAnimals(
+    @AuthenticationPrincipal CustomUserDetails userDetails,
+    @RequestParam(name = "page", defaultValue = "0") int page,
+    @RequestParam(name = "size", defaultValue = "10") int size
+  ) {
+    return ResponseEntity.ok(ApiResponse.success(
+        animalMyPageService.getMyLikedAnimals(userDetails.getMemberId(), PageRequest.of(page, size))));
+  }
 }
