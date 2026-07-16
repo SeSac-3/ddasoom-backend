@@ -18,6 +18,7 @@ import com.paw.ddasoom.member.exception.MemberErrorCode;
 import com.paw.ddasoom.member.exception.MemberException;
 import com.paw.ddasoom.member.repository.MemberRepository;
 import com.paw.ddasoom.common.dto.PageResponse;
+import com.paw.ddasoom.common.util.HtmlSanitizer;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,7 +56,8 @@ public class PostService {
         validateCategory(boardType, request.getCategory());
         Member member = getMember(memberId);
 
-        Post post = request.toEntity(member, boardType);
+        String safeContent = HtmlSanitizer.sanitize(request.getContent());
+        Post post = request.toEntity(member, boardType, safeContent);
         postRepository.save(post);
 
         imageService.attach(request.getImageIds(), OwnerType.POST, post.getId());
@@ -96,7 +98,7 @@ public class PostService {
         validateAuthor(post, memberId);
 
         post.update(boardType, request.getCategory(),
-                request.getTitle(), request.getContent());
+                request.getTitle(), HtmlSanitizer.sanitize(request.getContent()));
 
         // 수정은 diff 동기화 — 빠진 이미지 soft delete + 순서 갱신 (IMAGE_FLOW 3-6)
         imageService.syncImages(request.getImageIds(), OwnerType.POST, postId);
