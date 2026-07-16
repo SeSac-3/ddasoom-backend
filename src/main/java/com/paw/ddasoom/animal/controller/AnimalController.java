@@ -46,9 +46,9 @@ public class AnimalController {
   private final AnimalNicknameService animalNicknameService;
   private final AnimalLikeService animalLikeService; // 좋아요 서비스 (공부해야함)
   private final AnimalListPageService animalListPageService;
-  private final AnimalDetailService animalDetailService;
-  private final AnimalMyPageService animalMyPageService;
-  private final AnimalMainPageService animalMainPageService;
+  private final AnimalDetailService animalDetailService; // 상세페이지 서비스 (공부해야함)
+  private final AnimalMyPageService animalMyPageService; // 마이페이지 서비스 (공부해야함)
+  private final AnimalMainPageService animalMainPageService; // 메인페이지 서비스 (공부해야함)
 
   /**
    * 닉네임 이름 수정 요청 시, 변경된 닉네임 저장 (임보 보호자용)
