@@ -25,7 +25,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     FROM Post p
     JOIN p.member m
     WHERE p.boardType = :boardType
-      AND p.category = :category
+      AND (:category IS NULL OR p.category = :category)
       AND p.deletedAt IS NULL
     ORDER BY p.createdAt DESC
     """)
