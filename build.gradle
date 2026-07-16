@@ -42,7 +42,10 @@ dependencies {
 	// jwt
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
-	
+
+	// jsoup - Java HTML Parser : 게시글 미리 보기 태그 문제 해결
+	implementation 'org.jsoup:jsoup:1.22.2'
+
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	runtimeOnly 'com.mysql:mysql-connector-j'

@@ -34,13 +34,14 @@ public class PostCreateRequest {
     /** 대표 이미지 명시 지정 (사용자 직접 선택) — 미지정 시 null */
     private Long thumbnailImageId;
 
-    public Post toEntity(Member member, BoardType boardType) {
+    // content 를 파라미터로 받는다 — Service에서 sanitize한 본문을 주입한다.
+    public Post toEntity(Member member, BoardType boardType, String content) {
         return Post.builder()
                 .member(member)
                 .boardType(boardType)
                 .category(category)
                 .title(title)
-                .content(content)
+                .content(content)   // 정제된 본문
                 .build();
     }
 }

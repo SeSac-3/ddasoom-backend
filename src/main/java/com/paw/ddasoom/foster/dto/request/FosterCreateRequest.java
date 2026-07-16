@@ -1,5 +1,10 @@
 package com.paw.ddasoom.foster.dto.request;
 
+
+import com.paw.ddasoom.animal.domain.Animal;
+import com.paw.ddasoom.foster.domain.Foster;
+import com.paw.ddasoom.member.domain.Member;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -25,4 +30,15 @@ public class FosterCreateRequest {
 
   @Size(max = 1000, message = "신청 메세지는 1000자 이하로 입력 가능합니다.")
   private String message;
+
+  // DTO -> Entity 변환 메서드
+  public Foster toEntity(Animal animal, Member user) {
+    return Foster.builder()
+        .animal(animal)
+        .user(user)
+        .age(age)
+        .job(job)
+        .message(message)
+        .build();
+  }
 }

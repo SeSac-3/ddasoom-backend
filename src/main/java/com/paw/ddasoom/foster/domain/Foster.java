@@ -26,6 +26,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -89,13 +90,15 @@ public class Foster extends BaseTimeEntity {
 
   @Column(columnDefinition = "DATETIME(6)")
   private LocalDateTime deletedAt;
-
+  // 임시보호신청 엔티티 초기화 - UUID 발급 및 기본 상태(PENDING) 설정
+  @Builder
   private Foster(
       Animal animal,
       Member user,
       String age,
       String job,
-      String message) {
+      String message
+    ) {
     this.animal = animal;
     this.user = user;
     this.fosterNum = UUID.randomUUID();
@@ -103,29 +106,16 @@ public class Foster extends BaseTimeEntity {
     this.job = job;
     this.message = message;
     this.status = FosterStatus.PENDING;
-  }
+}
 
-  public static Foster create(
-      Animal animal,
-      Member user,
-      String age,
-      String job,
-      String message) {
-    return new Foster(
-        animal,
-        user,
-        age,
-        job,
-        message);
-  }
-
+  // 리치도메인 메서드 -> 임시보호신청 soft delete 처리(deletedAt 기준 삭제)
   public void softDelete() {
     if(this.deletedAt != null){
       throw new FosterException(FosterErrorCode.ALREADY_DELETED_FOSTER);
     }
     this.deletedAt = LocalDateTime.now();
   }
-
+  // 리치도메인 메서드 -> 유저 신청 내용 수정 (PENDING 상태에서 age/job/message만 수정)
   public void updateUserRequest(String age, String job, String message) {
     if (this.deletedAt != null) {
       throw new FosterException(FosterErrorCode.ALREADY_DELETED_FOSTER);
@@ -139,4 +129,46 @@ public class Foster extends BaseTimeEntity {
     this.message = message;
   }
 
+  // 관리자 신청 처리 정보 수정 (검토자/답변/상태/임시보호 일정 변경)
+  public void updateAdminReview(
+    Member reviewer,
+    String answer,
+    FosterStatus status,
+    LocalDateTime fosterStartAt,
+    LocalDateTime fosterEndAt,
+    LocalDateTime fosterExtendAt,
+    LocalDateTime fosterCompleteAt
+  ){
+    if (this.deletedAt != null){
+      throw new FosterException(FosterErrorCode.ALREADY_DELETED_FOSTER);
+    }
+    // 상태 변경 불가 검증
+    validateStatusTransition(status);
+    this.reviewer = reviewer;
+    this.answer = answer;
+    this.status = status;
+    this.fosterStartAt = fosterStartAt;
+    this.fosterEndAt = fosterEndAt;
+    this.fosterExtendAt = fosterExtendAt;
+    this.fosterCompleteAt = fosterCompleteAt;
+  }
+
+  // 관리자 상태 변경 시 허용되지 않은 상태 전이를 방지하는 검증 메서드
+  private void validateStatusTransition(FosterStatus nextStatus){
+    // 업데이트시 동일한 상태일시 처리 (PENDING == PENDING)
+    if (this.status == nextStatus) {
+      return;
+    }
+
+    boolean isValid = switch (this.status) {
+      case PENDING -> nextStatus == FosterStatus.FOSTERING || nextStatus == FosterStatus.REJECTED;
+      case FOSTERING -> nextStatus == FosterStatus.EXTENDED || nextStatus == FosterStatus.ENDED;
+      case EXTENDED -> nextStatus == FosterStatus.ENDED;
+      case REJECTED, ENDED -> false;
+    };
+
+    if (!isValid) {
+      throw new FosterException(FosterErrorCode.INVALID_FOSTER_STATUS_TRANSITION);
+    }
+  }
 }
