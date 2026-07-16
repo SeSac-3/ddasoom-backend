@@ -14,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import com.paw.ddasoom.animal.exception.AnimalException;
 import com.paw.ddasoom.animal.repository.AnimalLikeJdbcRepository;
 
 import lombok.RequiredArgsConstructor;
