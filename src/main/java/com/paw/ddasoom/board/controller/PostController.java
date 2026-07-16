@@ -27,7 +27,7 @@ public class PostController {
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<PostResponse>>> getPostList(
             @RequestParam String boardType,
-            @RequestParam String category,
+            @RequestParam(required = false) String category,
             @PageableDefault(size = 9) Pageable pageable) {
         PageResponse<PostResponse> response = postService.getPostList(boardType, category, pageable);
         return ResponseEntity.ok(ApiResponse.success("게시글 목록을 조회했습니다.", response));
