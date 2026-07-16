@@ -2,6 +2,8 @@ package com.paw.ddasoom.support.dto.request;
 
 import jakarta.validation.constraints.NotNull;
 
+import java.util.List;
+
 import com.paw.ddasoom.support.domain.FaqCategory;
 
 import jakarta.validation.constraints.NotBlank;
@@ -22,4 +24,6 @@ public class FaqCreateRequest {
 
   @NotBlank(message = "답변은 필수입니다.")
   private String answer;
+
+  private List<Long> imageIds;
 }

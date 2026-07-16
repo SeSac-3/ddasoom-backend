@@ -36,18 +36,11 @@ public class Qna extends BaseTimeEntity {
     @JoinColumn(name = "questioner_id", nullable = false)
     private Member questioner;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "answered_id")
-    private Member answerer;
-
     @Column(nullable = false, length = 255)
     private String title;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
-
-    @Column(columnDefinition = "TEXT")
-    private String answer;
 
     /* [최적화: SSOT] QnA 생성 시 기본 상태는 항상 '답변 대기'로 선언 */
     @Enumerated(EnumType.STRING)
@@ -70,12 +63,15 @@ public class Qna extends BaseTimeEntity {
         this.content = content;
     }
 
-    /* [QnA 답변 작성 및 상태 변경] */
-    public void answer(Member answerer, String answer) {
-        this.answerer = answerer;
-        this.answer = answer;
+    /* [QnA 답변 작성 시 상태 변경 + 답변 일시 갱신] */
+    public void markAnswered() {
         this.status = QnaStatus.ANSWERED;
-        this.answeredAt = LocalDateTime.now();
+        this.answeredAt = LocalDateTime.now(); // 매 답변마다 최신화
+    }
+
+    /* [유저 재질문 코멘트 추가 → 답변 대기] */
+    public void markPending() {
+        this.status = QnaStatus.PENDING;
     }
 
     /* [QnA 노출 여부 변경] */
