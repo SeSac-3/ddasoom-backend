@@ -4,6 +4,7 @@ import com.paw.ddasoom.board.domain.Post;
 import com.paw.ddasoom.board.dto.projection.PostListProjection;
 import lombok.Builder;
 import lombok.Getter;
+import org.jsoup.Jsoup;
 
 import java.time.LocalDateTime;
 
@@ -25,6 +26,9 @@ public class PostResponse {
     private final int commentCount;
     private final LocalDateTime createdAt;
 
+    private static final int PREVIEW_LENGTH = 200;
+
+
     @Builder
     private PostResponse(Long postId, String category, String title,
                          String contentPreview, String thumbnailUrl, AuthorResponse author,
@@ -40,18 +44,25 @@ public class PostResponse {
         this.createdAt = createdAt;
     }
 
-    /** 목록 조회 전용 — projection + Service에서 배치 조회한 썸네일 URL 조합 */
     public static PostResponse from(PostListProjection projection, String thumbnailUrl) {
         return PostResponse.builder()
                 .postId(projection.getPostId())
                 .category(projection.getCategory())
                 .title(projection.getTitle())
-                .contentPreview(projection.getContentPreview())
+                .contentPreview(toPreview(projection.getContent()))   // ← 가공해서 담음
                 .thumbnailUrl(thumbnailUrl)
                 .author(AuthorResponse.from(projection.getAuthorId(), projection.getAuthorNickname()))
                 .viewCount(projection.getViewCount())
                 .commentCount(projection.getCommentCount())
                 .createdAt(projection.getCreatedAt())
                 .build();
+    }
+
+    // HTML 본문 → 태그·엔티티 제거한 순수 텍스트의 앞 PREVIEW_LENGTH자.
+// 태그 제거를 '먼저' 하고 나서 잘라야 이미지가 앞에 와도 텍스트를 온전히 확보한다.
+    private static String toPreview(String html) {
+        if (html == null) return "";
+        String text = Jsoup.parse(html).text();  // 태그 제거 + &nbsp; 등 엔티티 디코딩
+        return text.length() > PREVIEW_LENGTH ? text.substring(0, PREVIEW_LENGTH) : text;
     }
 }
