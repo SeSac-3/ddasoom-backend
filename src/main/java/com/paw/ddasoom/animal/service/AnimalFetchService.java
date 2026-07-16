@@ -79,18 +79,18 @@ public class AnimalFetchService {
    */
   public AnimalFetchResponse fetchPage(int pageNo, int numOfRows) {
     AnimalFetchResponse raw = restClient.get()
-                                .uri(uriBuilder -> uriBuilder
-                                        .path("/abandonmentPublic_v2")
-                                        .queryParam("serviceKey", serviceKey)
-                                        .queryParam("numOfRows", numOfRows)
-                                        .queryParam("pageNo", pageNo)
-                                        .queryParam("_type", "json")
-                                        .build())
-                                .retrieve()
-                                .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
-                                    throw new AnimalException(AnimalErrorCode.API_NOT_CONNECTED);
-                                })
-                                .body(AnimalFetchResponse.class);
+        .uri(uriBuilder -> uriBuilder
+            .path("/abandonmentPublic_v2")
+            .queryParam("serviceKey", serviceKey)
+            .queryParam("numOfRows", numOfRows)
+            .queryParam("pageNo", pageNo)
+            .queryParam("_type", "json")
+            .build())
+        .retrieve()
+        .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+            throw new AnimalException(AnimalErrorCode.API_NOT_CONNECTED);
+        })
+        .body(AnimalFetchResponse.class);
     return raw;
   }
 }
