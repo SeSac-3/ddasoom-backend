@@ -30,7 +30,7 @@ public class AdminAnimalController {
   @PostMapping("/sync")
   public ResponseEntity<ApiResponse<Void>> syncAnimals() {
     List<Animal> savedAnimals = animalSyncService.syncAnimals();
-    log.info("API 동물 {}건이 DB에 저장/갱신되었씁니다.", savedAnimals.size());
+    log.info("API 동물 {}건이 DB에 저장/갱신되었습니다.", savedAnimals.size());
     return ResponseEntity.ok(ApiResponse.success("API 유기동물이 DB에 저장/갱신되었습니다."));
   }
 }
