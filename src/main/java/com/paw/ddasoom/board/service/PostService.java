@@ -146,6 +146,9 @@ public class PostService {
     /** String → enum 변환 — 컨트롤러에서 BoardType으로 직접 바인딩하면 Spring 예외(500)가 먼저 터져
      BOARD_003(400) 규격 응답이 불가능하므로, 변환 책임을 서비스가 가짐 */
     private BoardType parseBoardType(String boardType) {
+        if (boardType == null) {
+            throw new BoardException(BoardErrorCode.INVALID_BOARD_TYPE); // BOARD_003
+        }
         try {
             return BoardType.valueOf(boardType);
         } catch (IllegalArgumentException e) {
