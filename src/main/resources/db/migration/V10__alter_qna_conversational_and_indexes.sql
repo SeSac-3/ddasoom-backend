@@ -1,5 +1,5 @@
 -- =============================================
--- db/migration/V9__alter_qna_conversational_and_indexes.sql
+-- db/migration/V10__alter_qna_conversational_and_indexes.sql
 -- ⚠️ answered_at 은 V1의 앱관리 컬럼 그대로 사용 → 건드리지 않음(drop/modify 없음)
 -- =============================================
 
