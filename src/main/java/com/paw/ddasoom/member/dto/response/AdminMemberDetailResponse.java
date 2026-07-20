@@ -6,6 +6,7 @@ import java.util.List;
 import com.paw.ddasoom.auth.domain.LoginLog;
 import com.paw.ddasoom.member.domain.Member;
 import com.paw.ddasoom.member.domain.MemberSocial;
+import com.paw.ddasoom.member.domain.MemberStatus;
 import com.paw.ddasoom.member.domain.Role;
 
 import lombok.Builder;
@@ -21,6 +22,7 @@ public class AdminMemberDetailResponse {
   private String nickname;
   private String tel;
   private Role role;
+  private MemberStatus status;   // ACTIVE=정상 / HIDDEN=신고 제재 숨김 (탈퇴 여부와 별개 축)
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
   private LocalDateTime deletedAt;
@@ -36,6 +38,7 @@ public class AdminMemberDetailResponse {
               .name(member.getName())
               .nickname(member.getNickname())
               .tel(member.getTel())
+              .status(member.getStatus())
               .role(member.getRole())
               .createdAt(member.getCreatedAt())
               .updatedAt(member.getUpdatedAt())
