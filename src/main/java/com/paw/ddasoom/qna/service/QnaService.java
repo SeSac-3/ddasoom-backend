@@ -1,15 +1,17 @@
 package com.paw.ddasoom.qna.service;
 
-import com.paw.ddasoom.support.controller.AdminFaqController;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.paw.ddasoom.common.dto.PageResponse;
+import com.paw.ddasoom.image.domain.OwnerType;
+import com.paw.ddasoom.image.dto.response.ImageResponse;
+import com.paw.ddasoom.image.service.ImageService;
 import com.paw.ddasoom.member.domain.Member;
 import com.paw.ddasoom.member.repository.MemberRepository;
 import com.paw.ddasoom.qna.domain.Qna;
@@ -33,6 +35,7 @@ public class QnaService {
   private final QnaRepository qnaRepository;
   private final QnaCommentRepository qnaCommentRepository;
   private final MemberRepository memberRepository;
+  private final ImageService imageService;
 
 
   // ====== 1. 유저용 =======
@@ -74,8 +77,9 @@ public class QnaService {
         Qna qna = getQnaEntity(qnaId);
         validateOwner(qna, memberId);
 
-        appendComment(qna, memberRepository.getReferenceById(memberId), request.getContent());
-        qna.markPending();
+        QnaComment comment = appendComment(qna, memberRepository.getReferenceById(memberId), request.getContent());
+        imageService.attach(request.getImageIds(), OwnerType.QNA_COMMENT, comment.getId());
+        qna.markAnswered();
 
         qnaRepository.flush(); 
         return buildDetail(qna);
@@ -122,18 +126,22 @@ public class QnaService {
       }
     }
 
-    private void appendComment(Qna qna, Member writer, String content) {
+    private QnaComment appendComment(Qna qna, Member writer, String content) {
         QnaComment comment = QnaComment.builder()
                 .qna(qna)
                 .member(writer)
                 .content(content)
                 .build();
-        qnaCommentRepository.save(comment);
+        return qnaCommentRepository.save(comment);
     }
 
     private QnaDetailResponse buildDetail(Qna qna) {
       List<QnaComment> comments = 
         qnaCommentRepository.findByQna_IdAndDeletedAtIsNullOrderByCreatedAtAsc(qna.getId());
-      return QnaDetailResponse.from(qna, comments);
+      List<ImageResponse> questionImages = imageService.getImages(OwnerType.QNA,qna.getId());
+      List<Long> commentIds = comments.stream().map(QnaComment::getId).toList();
+      Map<Long, List<ImageResponse>> commentImagesByOwner = 
+        imageService.getImagesGroupedByOwners(OwnerType.QNA_COMMENT, commentIds);
+      return QnaDetailResponse.from(qna, comments, questionImages, commentImagesByOwner);
     }
   }

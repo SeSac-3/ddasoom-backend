@@ -23,4 +23,8 @@ public interface ImageRepository extends JpaRepository<Image, Long> {
     // 여러 소유자의 대표 이미지 일괄 조회 — 목록 페이지 N+1 방지용 (ownerId IN 절)
     List<Image> findAllByOwnerTypeAndOwnerIdInAndIsThumbnailTrueAndDeletedAtIsNull(
             OwnerType ownerType, List<Long> ownerIds);
+
+    // 여러 소유자의 전체 활성 이미지 일괄 조회 - QnA 코멘트 스레드 등 N+1 방지용 (ownerId IN 절)
+    List<Image> findAllByOwnerTypeAndOwnerIdInAndDeletedAtIsNullOrderByImageOrderAsc(
+            OwnerType ownerType, List<Long> ownerIds);
 }

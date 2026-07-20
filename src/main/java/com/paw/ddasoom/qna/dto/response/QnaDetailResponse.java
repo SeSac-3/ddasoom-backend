@@ -2,7 +2,9 @@ package com.paw.ddasoom.qna.dto.response;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
+import com.paw.ddasoom.image.dto.response.ImageResponse;
 import com.paw.ddasoom.qna.domain.Qna;
 import com.paw.ddasoom.qna.domain.QnaComment;
 import com.paw.ddasoom.qna.domain.QnaStatus;
@@ -22,9 +24,19 @@ public class QnaDetailResponse {
   private LocalDateTime createdAt;    // 문의 작성일
   private LocalDateTime answeredAt;   // 최신 답변일 (미답변 null)
   private LocalDateTime updatedAt;
+  private List<ImageResponse> images;
   private List<QnaCommentResponse> comments;
 
-  public static QnaDetailResponse from(Qna qna, List<QnaComment> comments) {
+  public static QnaDetailResponse from(
+      Qna qna, 
+      List<QnaComment> comments,
+      List<ImageResponse> questionImages,
+      Map<Long, List<ImageResponse>> commentImagesByOwner) {
+    
+    List<QnaCommentResponse> commentResponses = comments.stream()
+      .map(c -> QnaCommentResponse.from(c, commentImagesByOwner.getOrDefault(c.getId(), List.of())))
+      .toList();
+
     return QnaDetailResponse.builder()
       .qnaId(qna.getId())
       .questionerNickname(qna.getQuestioner().getNickname())
@@ -34,7 +46,8 @@ public class QnaDetailResponse {
       .createdAt(qna.getCreatedAt())
       .answeredAt(qna.getAnsweredAt())
       .updatedAt(qna.getUpdatedAt())
-      .comments(comments.stream().map(QnaCommentResponse::from).toList())
+      .images(questionImages)
+      .comments(commentResponses)
       .build();
 
   }
