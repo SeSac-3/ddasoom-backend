@@ -28,6 +28,11 @@ public interface AnimalLikeRepository extends JpaRepository<AnimalLike, Long> {
   List<Long> findLikedAnimalIds(@Param("memberId") Long memberId,
                                 @Param("animalIds") List<Long> animalIds);
 
+  // "좋아요만" 필터용 - 이 회원이 좋아요한 전체 animalId (RDB 커밋 기준).
+  // 여기에 Redis flush 안된 것을 오버레이해 "현재 시점" 집합을 만든다.
+  @Query("select al.animal.id from AnimalLike al where al.member.id = :memberId")
+  List<Long> findAllLikedAnimalIds(@Param("memberId") Long memberId);
+
   // 마이페이지 - 내가 좋아요한 동물 목록(최근 좋아요 순)
   @Query("select al.animal from AnimalLike al "
     + "where al.member.id = :memberId order by al.createdAt desc")

@@ -1,6 +1,7 @@
 package com.paw.ddasoom.animal.repository;
 
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -11,10 +12,8 @@ import com.paw.ddasoom.animal.domain.Animal;
 import com.paw.ddasoom.animal.domain.AnimalGender;
 import com.paw.ddasoom.animal.domain.AnimalKind;
 import com.paw.ddasoom.animal.domain.QAnimal;
-import com.paw.ddasoom.animal.domain.QAnimalLike;
 import com.paw.ddasoom.animal.dto.request.AnimalListPageRequest;
 import com.querydsl.core.types.dsl.BooleanExpression;
-import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 
 import lombok.RequiredArgsConstructor;
@@ -25,10 +24,14 @@ public class AnimalQueryRepository {
 
   private final JPAQueryFactory queryFactory;
 
+  /**
+   * @param likedFilterIds "좋아요만" 필터로 제한할 animalId 집합.
+   *        null = 필터 미적용(전체). 비어있지 않은 Set = 이 id들로만 제한.
+   *        (좋아요 집합은 RDB 커밋 + Redis flush 안된 것들을 서비스에서 합쳐 넘겨준다 - read-your-writes)
+   */
   private static final QAnimal animal = QAnimal.animal;
-  private static final QAnimalLike animalLike = QAnimalLike.animalLike;
 
-  public Page<Animal> search(AnimalListPageRequest request, Long memberId, Pageable pageable) {
+  public Page<Animal> search(AnimalListPageRequest request, Set<Long> likedFilterIds, Pageable pageable) {
     // memberId: "내가 좋아요한 동물만" 필터(isLiked=true)를 적용하기 위한 회원 PK. 비로그인이면 null.
     
     // WHERE 조건 — null 반환 메서드는 where절에서 자동 제거됨
@@ -37,7 +40,8 @@ public class AnimalQueryRepository {
       locationEq(request.location()),
       isFosteredEq(request.isFostered()),
       genderEq(request.gender()),
-      isLikedEq(request.isLiked(), memberId)
+      likedIn(likedFilterIds)
+      // isLikedEq(request.isLiked(), memberId)
     };
 
     List<Animal> animals = queryFactory
@@ -75,18 +79,9 @@ public class AnimalQueryRepository {
     return gender != null ? animal.gender.eq(gender) : null;
   }
 
-  // "내가 좋아요한 동물만" 필터 — animal_like에 (해당 동물, 나) 행이 존재하는 동물로 제한.
-  // isLiked가 true가 아니거나 비로그인(memberId=null)이면 필터 미적용(null 반환).
-  private BooleanExpression isLikedEq(Boolean isLiked, Long memberId) {
-    if (isLiked == null || !isLiked || memberId == null) {
-      return null;
-    }
-    return JPAExpressions
-      .selectOne()
-      .from(animalLike)
-      .where(
-        animalLike.animal.eq(animal),
-        animalLike.member.id.eq(memberId))
-      .exists();
+  // "좋아요만" 필터 - 서비스가 계산한 "현재 시점" 좋아요 집합으로 제한.
+  // null(필터 미적용) 이면 조건 없음. (빈 집합은 서비스에서 미리 걸러 여기로 오지 않음)
+  private BooleanExpression likedIn(Set<Long> likedFilterIds) {
+    return likedFilterIds != null ? animal.id.in(likedFilterIds) : null;
   }
 }

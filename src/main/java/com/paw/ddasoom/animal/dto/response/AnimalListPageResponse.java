@@ -15,6 +15,7 @@ public record AnimalListPageResponse(
   String typeName,
   String age,
   String imageUrl,
+  String location,
   boolean isFostered,
   int likeCount,
   boolean isLiked // 로그인 회원이 좋아요한 동물인지 - RDB animal_like 기준(비로그인이면 항상 false)
@@ -29,6 +30,7 @@ public record AnimalListPageResponse(
       .typeName(animal.getTypeName())
       .age(animal.getAge())
       .imageUrl(animal.getImageUrl())
+      .location(animal.getLocation())
       .isFostered(animal.isFostered())
       .likeCount(animal.getLikeCount())
       .isLiked(isLiked)

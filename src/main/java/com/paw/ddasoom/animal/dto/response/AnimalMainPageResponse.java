@@ -4,9 +4,12 @@ import com.paw.ddasoom.animal.domain.Animal;
 import com.paw.ddasoom.animal.domain.AnimalGender;
 import com.paw.ddasoom.animal.domain.AnimalKind;
 
+import lombok.Builder;
+
+@Builder
 // DTO 확인용
 public record AnimalMainPageResponse(
-  Long id,
+  long animalId,
   String abandonmentId,
   AnimalKind kind,
   String nickname,
@@ -19,23 +22,27 @@ public record AnimalMainPageResponse(
   String specialMark,
   String vaccinationChk,
   String imageUrl,
-  long likeCount
+  long likeCount,
+  boolean isFostered
 ) {
   public static AnimalMainPageResponse from(Animal animal) {
-    return new AnimalMainPageResponse(
-      animal.getId(),
-      animal.getAbandonmentId(), 
-      animal.getKind(), 
-      animal.getNickname(), 
-      animal.getGender(), 
-      animal.getTypeName(), 
-      animal.getAge(), 
-      animal.getLocation(), 
-      animal.getWeight(), 
-      animal.getColor(), 
-      animal.getSpecialMark(), 
-      animal.getVaccinationChk(), 
-      animal.getImageUrl(), 
-      animal.getLikeCount());
+    return AnimalMainPageResponse.builder()
+      .animalId(animal.getId())
+      .abandonmentId(animal.getAbandonmentId())
+      .kind(animal.getKind())
+      .kind(animal.getKind())
+      .nickname(animal.getNickname())
+      .gender(animal.getGender())
+      .typeName(animal.getTypeName())
+      .age(animal.getAge())
+      .location(animal.getLocation())
+      .weight(animal.getWeight())
+      .color(animal.getColor())
+      .specialMark(animal.getSpecialMark())
+      .vaccinationChk(animal.getVaccinationChk())
+      .imageUrl(animal.getImageUrl())
+      .likeCount(animal.getLikeCount())
+      .isFostered(animal.isFostered())
+      .build();
   }
 }
