@@ -36,7 +36,7 @@ public class FosterUserDetailResponse {
 
   public static FosterUserDetailResponse from(Foster foster) {
     return FosterUserDetailResponse.builder()
-        .fosterId(foster.getFosterId())
+        .fosterId(foster.getId())
         .animalId(foster.getAnimal().getId())
         .animalNickname(foster.getAnimal().getNickname())
         .animalImageUrl(foster.getAnimal().getImageUrl())

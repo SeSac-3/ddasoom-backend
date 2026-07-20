@@ -41,7 +41,7 @@ public class Foster extends BaseTimeEntity {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   @Column(name = "foster_id", nullable = false)
-  private Long fosterId;
+  private Long id;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "animal_id", nullable = false, foreignKey = @ForeignKey(name = "fk_foster_animal"))
@@ -74,7 +74,7 @@ public class Foster extends BaseTimeEntity {
   @Enumerated(EnumType.STRING)
   @JdbcTypeCode(Types.VARCHAR)
   @Column(nullable = false, length = 20, columnDefinition = "VARCHAR(20)")
-  private FosterStatus status = FosterStatus.PENDING;
+  private FosterStatus status;
 
   @Column(columnDefinition = "DATETIME(6)")
   private LocalDateTime fosterStartAt;
@@ -110,23 +110,43 @@ public class Foster extends BaseTimeEntity {
 
   // 리치도메인 메서드 -> 임시보호신청 soft delete 처리(deletedAt 기준 삭제)
   public void softDelete() {
-    if(this.deletedAt != null){
+    if (this.deletedAt != null) {
       throw new FosterException(FosterErrorCode.ALREADY_DELETED_FOSTER);
     }
+
+    validateUserModifiableStatus(FosterErrorCode.INVALID_FOSTER_DELETE_STATUS);
+
     this.deletedAt = LocalDateTime.now();
-  }
+  } 
   // 리치도메인 메서드 -> 유저 신청 내용 수정 (PENDING 상태에서 age/job/message만 수정)
   public void updateUserRequest(String age, String job, String message) {
     if (this.deletedAt != null) {
       throw new FosterException(FosterErrorCode.ALREADY_DELETED_FOSTER);
     }
 
-    if (this.status != FosterStatus.PENDING) {
-      throw new FosterException(FosterErrorCode.INVALID_FOSTER_STATUS);
-    }
+    validateUserModifiableStatus(FosterErrorCode.INVALID_FOSTER_UPDATE_STATUS);
+
     this.age = age;
     this.job = job;
     this.message = message;
+  }
+  // 수정 및 삭제시 PENDING,REJECTED 상태 체크 검증 메서드
+  private void validateUserModifiableStatus(FosterErrorCode errorCode) {
+    boolean isModifiable =
+        this.status == FosterStatus.PENDING ||
+        this.status == FosterStatus.REJECTED;
+
+    if (!isModifiable) {
+      throw new FosterException(errorCode);
+    }
+  }
+  // 관리자 임시보호요청 삭제 
+  public void softDeleteByAdmin() {
+    if (this.deletedAt != null) {
+      throw new FosterException(FosterErrorCode.ALREADY_DELETED_FOSTER);
+    }
+
+    this.deletedAt = LocalDateTime.now();
   }
 
   // 관리자 신청 처리 정보 수정 (검토자/답변/상태/임시보호 일정 변경)

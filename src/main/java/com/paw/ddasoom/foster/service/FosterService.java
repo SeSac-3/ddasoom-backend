@@ -1,5 +1,7 @@
 package com.paw.ddasoom.foster.service;
 
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,12 @@ public class FosterService {
         private final AnimalRepository animalRepository;
         private final MemberService memberService;
 
+        private static final List<FosterStatus> DUPLICATE_BLOCKING_STATUSES = List.of(
+                FosterStatus.PENDING,
+                FosterStatus.FOSTERING,
+                FosterStatus.EXTENDED
+        );
+
         /** 유저 임시보호 신청 생성 */
         @Transactional
         public void create(Long memberId, FosterCreateRequest request) {
@@ -60,22 +68,23 @@ public class FosterService {
         }
 
         /**동일 유저의 중복 신청을 막는 검증 메서드 */
-        private void validateDuplicateApplication(Long memberId, Long animalId){
+        private void validateDuplicateApplication(Long memberId, Long animalId) {
                 boolean existsActiveApplication = fosterRepository
-                        .existsByUser_IdAndAnimal_IdAndDeletedAtIsNullAndStatusNot(
+                        .existsByUser_IdAndAnimal_IdAndDeletedAtIsNullAndStatusIn(
                         memberId,
                         animalId,
-                        FosterStatus.REJECTED
-                );
+                        DUPLICATE_BLOCKING_STATUSES
+                        );
+
                 if (existsActiveApplication) {
                         throw new FosterException(FosterErrorCode.DUPLICATE_FOSTER_APPLICATION);
-                }
         }
+}
 
-        /** 유저 글 수정 */
+        /** 유저 임시보호신청 수정 */
         @Transactional
         public void update(Long memberId, Long fosterId, FosterUpdateRequest request) {
-                Foster foster = fosterRepository.findByFosterIdAndUser_IdAndDeletedAtIsNull(fosterId, memberId)
+                Foster foster = fosterRepository.findByIdAndUser_IdAndDeletedAtIsNull(fosterId, memberId)
                                 .orElseThrow(() -> new FosterException(FosterErrorCode.FOSTER_NOT_FOUND));
 
                 foster.updateUserRequest(
@@ -99,7 +108,7 @@ public class FosterService {
         /** 유저 글 조회(디테일) */
         @Transactional(readOnly = true)
         public FosterUserDetailResponse getFosterDetail(Long memberId, Long fosterId) {
-                Foster foster = fosterRepository.findByFosterIdAndUser_IdAndDeletedAtIsNull(fosterId, memberId)
+                Foster foster = fosterRepository.findByIdAndUser_IdAndDeletedAtIsNull(fosterId, memberId)
                                 .orElseThrow(() -> new FosterException(FosterErrorCode.FOSTER_NOT_FOUND));
 
                 return FosterUserDetailResponse.from(foster);
@@ -108,7 +117,7 @@ public class FosterService {
         /** 유저 글 삭제 */
         @Transactional
         public void delete(Long memberId, Long fosterId) {
-                Foster foster = fosterRepository.findByFosterIdAndUser_IdAndDeletedAtIsNull(fosterId, memberId)
+                Foster foster = fosterRepository.findByIdAndUser_IdAndDeletedAtIsNull(fosterId, memberId)
                                 .orElseThrow(() -> new FosterException(FosterErrorCode.FOSTER_NOT_FOUND));
 
                 foster.softDelete();

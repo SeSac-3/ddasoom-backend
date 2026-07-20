@@ -46,7 +46,7 @@ public class FosterAdminDetailResponse {
 
   public static FosterAdminDetailResponse from(Foster foster) {
     return FosterAdminDetailResponse.builder()
-        .fosterId(foster.getFosterId())
+        .fosterId(foster.getId())
         .fosterNum(foster.getFosterNum())
         .animalId(foster.getAnimal().getId())
         .animalNickname(foster.getAnimal().getNickname())

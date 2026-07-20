@@ -6,6 +6,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -74,5 +75,15 @@ public class FosterAdminController {
       fosterAdminService.updateFoster(userDetails.getMemberId(), fosterId, request);
       return ResponseEntity.ok(ApiResponse.success("임시보호 신청 처리 정보가 수정되었습니다."));
     }
+  
+    /** 관리자 임시보호 신청 삭제 */
+  @DeleteMapping("/{fosterId}")
+  public ResponseEntity<ApiResponse<Void>> delete(
+      @PathVariable Long fosterId) {
+    fosterAdminService.deleteFoster(fosterId);
 
+    return ResponseEntity.ok(
+        ApiResponse.success("임시보호 신청이 삭제되었습니다.")
+    );
+  }
 }
