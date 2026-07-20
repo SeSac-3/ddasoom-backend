@@ -26,12 +26,14 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     JOIN p.member m
     WHERE p.boardType = :boardType
       AND (:category IS NULL OR p.category = :category)
+      AND (:keyword IS NULL OR p.title LIKE CONCAT('%', :keyword, '%'))
       AND p.deletedAt IS NULL
     ORDER BY p.createdAt DESC
     """)
     Page<PostListProjection> findPostList(
             @Param("boardType") BoardType boardType,
             @Param("category") String category,
+            @Param("keyword") String keyword,
             Pageable pageable);
 
     /**
