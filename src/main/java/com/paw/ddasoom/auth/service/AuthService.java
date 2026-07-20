@@ -46,6 +46,12 @@ public class AuthService {
   private static final Duration RESEND_COOLDOWN = Duration.ofSeconds(60);  // 메일 안내 문구와 일치시킬 것
   private String cooldownKey(String email) { return "authCodeCooldown:" + email; }
 
+  // IP 단위 발송 제한 — 이메일 단위 쿨다운(60초)만으로는 "이메일을 바꿔가며" 대량 발송하는
+  // 악용을 못 막음 (피드백 1-5). 시간당 10회는 공용 IP(학원/카페) 오탐을 완화한 절충값.
+  private static final int MAX_AUTH_MAILS_PER_IP = 10;
+  private static final Duration IP_LIMIT_WINDOW = Duration.ofHours(1);   // 에러 문구 "1시간"과 일치
+  private String ipLimitKey(String clientIp) { return "authCodeSendIp:" + clientIp; }
+
   // 키 설계
   private String authCodeKey(String email) { return "authCode:" + email; }
   private String verifiedKey(String email) { return "verified:" + email; }
@@ -54,8 +60,14 @@ public class AuthService {
    * 회원가입 요청 중 , 이메일 인증 로직
    * -------------------------------------------------------------------------------------------------*/
 
-  /** 인증 코드 발송 (재발송 겸용) */
-  public void sendAuthCode(String email) {
+  /** 인증 코드 발송 (재발송 겸용). clientIp는 컨트롤러가 추출해 전달 (서비스의 HttpServletRequest 의존 금지) */
+  public void sendAuthCode(String email, String clientIp) {
+    // IP 단위 제한을 이메일 쿨다운보다 먼저 — 더 넓은 악용 방어선이 최전방
+    String sendCountValue = redisTemplate.opsForValue().get(ipLimitKey(clientIp));
+    if (sendCountValue != null && Integer.parseInt(sendCountValue) >= MAX_AUTH_MAILS_PER_IP) {
+      throw new AuthException(AuthErrorCode.AUTH_CODE_IP_LIMIT);
+    }
+
     if (Boolean.TRUE.equals(redisTemplate.hasKey(cooldownKey(email)))) {
       throw new AuthException(AuthErrorCode.AUTH_CODE_COOLDOWN);
     }
@@ -69,8 +81,15 @@ public class AuthService {
     String code = String.format("%06d", random.nextInt(1_000_000));
     redisTemplate.opsForValue().set(authCodeKey(email), code, AUTH_CODE_TTL);
 
-    mailUtil.sendAuthCodeEmail(email, code);   // 발송 실패 시 여기서 throw — 쿨다운은 미기록
+    mailUtil.sendAuthCodeEmail(email, code);   // 발송 실패 시 여기서 throw — 쿨다운/IP카운트는 미기록
     redisTemplate.opsForValue().set(cooldownKey(email), "sent", RESEND_COOLDOWN);  // 발송 성공 후에만
+
+    // 실제 발송 성공 건만 카운트 (실패/거절 요청은 미포함 — 쿨다운과 동일 원칙).
+    // INCR 후 첫 증가에만 TTL 부여 — 기존 authCodeAttempt 카운터와 같은 패턴
+    Long sendCount = redisTemplate.opsForValue().increment(ipLimitKey(clientIp));
+    if (sendCount != null && sendCount == 1) {
+      redisTemplate.expire(ipLimitKey(clientIp), IP_LIMIT_WINDOW);
+    }
   }
 
   /** 인증 코드 검증 → 성공 시 인증 완료 플래그 생성 */

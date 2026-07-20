@@ -56,6 +56,10 @@ public class Member extends BaseTimeEntity{
   @Column(nullable = false, length = 20)
   private EventStatus eventStatus;
 
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 20)
+  private MemberStatus status;
+
   @Column(columnDefinition = "DATETIME(6)")
   private LocalDateTime deletedAt;
 
@@ -68,6 +72,7 @@ public class Member extends BaseTimeEntity{
       this.tel = tel;
       this.role = role != null ? role : Role.GUEST;
       this.eventStatus = EventStatus.NONE;   // 신규 회원 기본 상태
+      this.status = MemberStatus.ACTIVE;     // 신규 회원 = 정상 노출 상태
   }
 
   // 리치도메인 메서드 -> SNS 회원가입 추가 정보 수용 + Update
@@ -115,6 +120,15 @@ public class Member extends BaseTimeEntity{
   // 리치도메인 메서드 -> 이벤트 참여 상태 변경 (board 도메인이 게시글 작성 수 기준으로 호출)
   public void updateEventStatus(EventStatus eventStatus) {
       this.eventStatus = eventStatus;
+  }
+
+  /**
+   * 리치도메인 메서드
+   * 노출 상태 전환 (ACTIVE ↔ HIDDEN) — 관리자 수동 조작 전용.
+   * 탈퇴 회원 차단은 호출부의 getMember(활성 조회)가 담당하므로 여기선 검사하지 않는다.
+   */
+  public void changeStatus(MemberStatus status) {
+      this.status = status;
   }
 
 }

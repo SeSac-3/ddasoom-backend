@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -13,11 +14,13 @@ import org.springframework.web.bind.annotation.RestController;
 import com.paw.ddasoom.common.dto.ApiResponse;
 import com.paw.ddasoom.common.dto.PageResponse;
 import com.paw.ddasoom.member.domain.Role;
+import com.paw.ddasoom.member.dto.request.MemberStatusUpdateRequest;
 import com.paw.ddasoom.member.dto.response.AdminMemberDetailResponse;
 import com.paw.ddasoom.member.dto.response.AdminMemberResponse;
 import com.paw.ddasoom.member.dto.response.LoginLogResponse;
 import com.paw.ddasoom.member.service.AdminMemberService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -69,5 +72,14 @@ public class AdminMemberController {
   public ResponseEntity<ApiResponse<AdminMemberResponse>> restore(@PathVariable(name = "memberId") Long memberId) {
       AdminMemberResponse response = adminMemberService.restore(memberId);
       return ResponseEntity.ok(ApiResponse.success("계정이 복구되었습니다.", response));
+  }
+
+  /** 회원 노출 상태 변경 — 신고 확인 후 관리자 수동 제재 (ACTIVE/HIDDEN). ADMIN 계정 대상 불가 */
+  @PatchMapping("/{memberId}/status")
+  public ResponseEntity<ApiResponse<AdminMemberResponse>> changeStatus(
+          @PathVariable(name = "memberId") Long memberId,
+          @Valid @RequestBody MemberStatusUpdateRequest request) {
+      AdminMemberResponse response = adminMemberService.changeStatus(memberId, request);
+      return ResponseEntity.ok(ApiResponse.success("회원 상태가 변경되었습니다.", response));
   }
 }

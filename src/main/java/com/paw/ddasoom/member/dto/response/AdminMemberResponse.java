@@ -3,6 +3,7 @@ package com.paw.ddasoom.member.dto.response;
 import java.time.LocalDateTime;
 
 import com.paw.ddasoom.member.domain.Member;
+import com.paw.ddasoom.member.domain.MemberStatus;
 import com.paw.ddasoom.member.domain.Role;
 
 import lombok.Builder;
@@ -16,6 +17,7 @@ public class AdminMemberResponse {
   private String email;
   private String nickname;
   private Role role;
+  private MemberStatus status;
   private LocalDateTime createdAt;
   private LocalDateTime deletedAt;
 
@@ -25,6 +27,7 @@ public class AdminMemberResponse {
               .email(member.getEmail())
               .nickname(member.getNickname())
               .role(member.getRole())
+              .status(member.getStatus())
               .createdAt(member.getCreatedAt())
               .deletedAt(member.getDeletedAt())
               .build();

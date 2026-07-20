@@ -46,11 +46,27 @@ public class AuthController {
     private final CookieUtil cookieUtil;
     private final JwtUtil jwtUtil;
 
-    /** 이메일 인증 코드 발송 (재발송 겸용) */
+    /** 이메일 인증 코드 발송 (재발송 겸용) — IP 단위 시간당 제한 적용 (AUTH_007) */
     @PostMapping("/email/send")
-    public ResponseEntity<ApiResponse<Void>> sendAuthCode(@Valid @RequestBody AuthCodeSendRequest request) {
-        authService.sendAuthCode(request.getEmail());
+    public ResponseEntity<ApiResponse<Void>> sendAuthCode(
+            @Valid @RequestBody AuthCodeSendRequest request,
+            HttpServletRequest httpRequest) {
+        authService.sendAuthCode(request.getEmail(), resolveClientIp(httpRequest));
         return ResponseEntity.ok(ApiResponse.success("인증 코드가 발송되었습니다."));
+    }
+
+    /**
+     * 클라이언트 IP 추출 — 리버스 프록시(운영 Nginx 등) 경유 시 X-Forwarded-For의 첫 값이 원 IP.
+     * 로컬/데모(프록시 없음)는 헤더가 없어 getRemoteAddr() 사용.
+     * ⚠️ XFF는 클라이언트가 위조 가능한 헤더 — rate limit 용도(우회 시 피해가 "메일 몇 통 더")라 수용,
+     *    인증·인가 판단에는 절대 사용하지 말 것.
+     */
+    private String resolveClientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();   // "client, proxy1, proxy2" 형식의 첫 토큰
+        }
+        return request.getRemoteAddr();
     }
 
     /** 이메일 인증 코드 검증 */

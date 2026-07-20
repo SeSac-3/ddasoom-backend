@@ -17,7 +17,8 @@ public enum MemberErrorCode implements ErrorCode{
   PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "MEMBER_004", "현재 비밀번호가 일치하지 않습니다."),
   SOCIAL_MEMBER_HAS_NO_PASSWORD(HttpStatus.BAD_REQUEST, "MEMBER_005", "소셜 로그인 회원은 비밀번호를 변경할 수 없습니다."),
   NOT_DELETED_MEMBER(HttpStatus.BAD_REQUEST, "MEMBER_006", "탈퇴 상태가 아닌 회원입니다."),
-  CANNOT_WITHDRAW_ADMIN(HttpStatus.BAD_REQUEST, "MEMBER_007", "관리자 계정은 강제 탈퇴할 수 없습니다.");
+  CANNOT_WITHDRAW_ADMIN(HttpStatus.BAD_REQUEST, "MEMBER_007", "관리자 계정은 강제 탈퇴할 수 없습니다."),
+  CANNOT_CHANGE_ADMIN_STATUS(HttpStatus.BAD_REQUEST, "MEMBER_008", "관리자 계정의 상태는 변경할 수 없습니다.");
 
   
   // 실제 상태(필드)는 Enum이 가집니다.

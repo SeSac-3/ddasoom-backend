@@ -60,9 +60,26 @@ public class MemberService {
       return MemberResponse.from(member);   // 더티 체킹으로 UPDATE — save() 불필요
   }
 
-  /** 조회 — 없으면 예외 (컨벤션: get = throw, find = Optional) */
-  @Transactional(readOnly = true)
+  /**
+   * 활성 회원 조회 — 없으면 MEMBER_001, 탈퇴(soft delete) 상태면 MEMBER_003.
+   * 일반 서비스 로직의 기본 조회 경로: 이걸 쓰는 모든 곳이 "탈퇴 회원 대상 작업"을 자동 차단한다.
+   * (신고 제재로 탈퇴 처리된 회원이 어떤 경로로든 대상이 되는 것을 원천 방지 — A-5 연계)
+   */
   public Member getMember(Long memberId) {
+      Member member = memberRepository.findById(memberId)
+              .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
+      if (member.isDeleted()) {
+          throw new MemberException(MemberErrorCode.ALREADY_DELETED_MEMBER);
+      }
+      return member;
+  }
+
+  /**
+   * 탈퇴 회원 포함 조회 — 없으면 MEMBER_001만.
+   * 탈퇴 회원을 다뤄야만 하는 관리자 기능(상세 조회·로그인 이력·복구) 전용.
+   * ⚠️ 일반 서비스 로직에서 사용 금지 — 탈퇴 검사가 우회된다.
+   */
+  public Member getMemberIncludingDeleted(Long memberId) {
       return memberRepository.findById(memberId)
               .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
   }
