@@ -24,13 +24,15 @@ public class PostController {
 
     private final PostService postService;
 
-    /** 전체 페이지 조회(기본 페이지네이션: 9), 카테고리, 보드타입 필요*/
+    /** 전체 페이지 조회(기본 페이지네이션: 9), 카테고리, 보드타입 필요. keyword는 제목 부분일치 검색(선택) */
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<PostResponse>>> getPostList(
             @RequestParam String boardType,
             @RequestParam(required = false) String category,
+            @RequestParam(required = false) String keyword,
             @PageableDefault(size = 9) Pageable pageable) {
-        PageResponse<PostResponse> response = postService.getPostList(boardType, category, pageable);
+        PageResponse<PostResponse> response =
+                postService.getPostList(boardType, category, keyword, pageable);
         return ResponseEntity.ok(ApiResponse.success("게시글 목록을 조회했습니다.", response));
     }
 
