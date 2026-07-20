@@ -68,9 +68,13 @@ public class PostService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<PostResponse> getPostList(String boardType, String category, Pageable pageable) {
+    public PageResponse<PostResponse> getPostList(
+            String boardType, String category, String keyword, Pageable pageable) {
         BoardType parsedBoardType = parseBoardType(boardType);
-        Page<PostListProjection> page = postRepository.findPostList(parsedBoardType, category, pageable);
+        // 빈 문자열/공백 검색어는 "검색 없음"으로 정규화 — 쿼리의 :keyword IS NULL 분기와 일치시킴
+        String normalizedKeyword = keyword != null && !keyword.isBlank() ? keyword.trim() : null;
+        Page<PostListProjection> page =
+                postRepository.findPostList(parsedBoardType, category, normalizedKeyword, pageable);
 
         List<Long> postIds = page.getContent().stream()
                 .map(PostListProjection::getPostId)
