@@ -1,5 +1,7 @@
 package com.paw.ddasoom.qna.dto.request;
 
+import java.util.List;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -15,5 +17,7 @@ public class QnaCreateRequest {
 
   @NotBlank(message = "내용은 필수입니다.")
   private String content;
+
+  private List<Long> imageIds; // optional — 미리 업로드된 이미지 id 목록
 
 }

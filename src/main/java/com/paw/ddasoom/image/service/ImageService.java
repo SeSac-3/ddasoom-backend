@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -221,4 +222,25 @@ public class ImageService {
                 ));
     }
 
+    /**
+     * 여러 소유자의 활성 이미지 일괄 조회 — QnA 코멘트 스레드 등 목록성 화면 전용 (게시글 수와 무관하게 쿼리 1번, N+1 방지).
+     * 이미지가 없는 소유자는 Map에 키 자체가 없음 → 호출부는 getOrDefault(id, List.of())로 처리.
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, List<ImageResponse>> getImagesGroupedByOwners(OwnerType ownerType, List<Long> ownerIds) {
+        if (ownerIds == null || ownerIds.isEmpty()) {
+            return Map.of();  // 빈 스레드 조회 시 불필요한 쿼리 방지 (attach의 조기 return과 같은 방어)
+        }
+
+        List<Image> images = imageRepository
+                .findAllByOwnerTypeAndOwnerIdInAndDeletedAtIsNullOrderByImageOrderAsc(ownerType, ownerIds);
+
+        return images.stream()
+                .collect(Collectors.groupingBy(
+                        Image::getOwnerId,
+                        LinkedHashMap::new,
+                        Collectors.mapping(
+                                image -> ImageResponse.from(image, minioUtil.getUrl(ownerType, image.getImageKey())),
+                                Collectors.toList())));
+    }
 }

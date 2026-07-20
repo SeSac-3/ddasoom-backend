@@ -14,7 +14,7 @@ package com.paw.ddasoom.image.domain;
  * 새 타입 추가 시 상수 한 줄 + isPublic 값만 결정하면 나머지 분기는 자동으로 따라온다.
  */
 public enum OwnerType {
-    POST(true), NOTICE(true), ANIMAL(true), FAQ(true), QNA(false);
+    POST(true), NOTICE(true), ANIMAL(true), FAQ(true), QNA(false), QNA_COMMENT(false);;
 
     private final boolean isPublic;
 
