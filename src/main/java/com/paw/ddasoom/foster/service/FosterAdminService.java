@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.paw.ddasoom.common.dto.PageResponse;
 import com.paw.ddasoom.foster.domain.Foster;
+import com.paw.ddasoom.foster.domain.FosterManagementScope;
 import com.paw.ddasoom.foster.domain.FosterStatus;
 import com.paw.ddasoom.foster.dto.request.FosterAdminUpdateRequest;
 import com.paw.ddasoom.foster.dto.response.FosterAdminDetailResponse;
@@ -26,6 +27,17 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class FosterAdminService {
+
+  private static final List<FosterStatus> APPLICATION_STATUSES = List.of(
+    FosterStatus.PENDING,
+    FosterStatus.REJECTED
+);
+
+  private static final List<FosterStatus> PROGRESS_FOSTER_STATUSES = List.of(
+      FosterStatus.FOSTERING,
+      FosterStatus.EXTENDED,
+      FosterStatus.ENDED
+  );
 
   private static final List<FosterStatus> ACTIVE_FOSTER_STATUSES = List.of(
       FosterStatus.FOSTERING,
@@ -44,9 +56,10 @@ public class FosterAdminService {
     return FosterAdminDetailResponse.from(foster);
   }
 
-  /** 관리자 임시보호 신청 목록 조회 */
+    /** 관리자 임시보호 신청 목록 조회 */
   @Transactional(readOnly = true)
   public PageResponse<FosterAdminListResponse> getFosterList(
+      FosterManagementScope scope,
       FosterStatus status,
       boolean activeOnly,
       boolean includeDeleted,
@@ -54,28 +67,55 @@ public class FosterAdminService {
       LocalDate endDate,
       Pageable pageable
   ) {
-    if (status != null && activeOnly) {
-      throw new FosterException(FosterErrorCode.INVALID_FOSTER_SEARCH_CONDITION);
-    }
-
     if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
       throw new FosterException(FosterErrorCode.INVALID_FOSTER_DATE_RANGE);
     }
+
+    List<FosterStatus> statuses = resolveSearchStatuses(scope, status, activeOnly);
 
     LocalDateTime startAt = startDate != null ? startDate.atStartOfDay() : null;
     LocalDateTime endAt = endDate != null ? endDate.plusDays(1).atStartOfDay() : null;
 
     Page<Foster> fosterList = fosterRepository.findAllForAdmin(
-      status,
-      activeOnly,
-      ACTIVE_FOSTER_STATUSES,
-      includeDeleted,
-      startAt,
-      endAt,
-      pageable
-  );
+        statuses,
+        includeDeleted,
+        startAt,
+        endAt,
+        pageable
+    );
 
     return PageResponse.of(fosterList, FosterAdminListResponse::from);
+  }
+    private List<FosterStatus> resolveSearchStatuses(
+      FosterManagementScope scope,
+      FosterStatus status,
+      boolean activeOnly
+  ) {
+    if (activeOnly && status != null) {
+      throw new FosterException(FosterErrorCode.INVALID_FOSTER_SEARCH_CONDITION);
+    }
+
+    return switch (scope) {
+      case APPLICATION -> {
+        if (activeOnly || (status != null && !APPLICATION_STATUSES.contains(status))) {
+          throw new FosterException(FosterErrorCode.INVALID_FOSTER_SEARCH_CONDITION);
+        }
+
+        yield status == null ? APPLICATION_STATUSES : List.of(status);
+      }
+
+      case PROGRESS -> {
+        if (activeOnly) {
+          yield ACTIVE_FOSTER_STATUSES;
+        }
+
+        if (status != null && !PROGRESS_FOSTER_STATUSES.contains(status)) {
+          throw new FosterException(FosterErrorCode.INVALID_FOSTER_SEARCH_CONDITION);
+        }
+
+        yield status == null ? PROGRESS_FOSTER_STATUSES : List.of(status);
+      }
+    };
   }
 
   /**
@@ -119,7 +159,7 @@ public class FosterAdminService {
 
     syncAnimalFosterStatus(foster);
   }
-
+  
   private void syncAnimalFosterStatus(Foster foster) {
     boolean isFostered = fosterRepository.existsByAnimal_IdAndStatusInAndDeletedAtIsNull(
         foster.getAnimal().getId(),

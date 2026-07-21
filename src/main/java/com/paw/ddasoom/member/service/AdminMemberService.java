@@ -11,6 +11,7 @@ import com.paw.ddasoom.auth.service.RedisTokenService;
 import com.paw.ddasoom.auth.util.JwtUtil;
 import com.paw.ddasoom.common.dto.PageResponse;
 import com.paw.ddasoom.member.domain.Member;
+import com.paw.ddasoom.member.domain.MemberStatus;
 import com.paw.ddasoom.member.domain.Role;
 import com.paw.ddasoom.member.dto.request.MemberStatusUpdateRequest;
 import com.paw.ddasoom.member.dto.response.AdminMemberDetailResponse;
@@ -104,4 +105,18 @@ public class AdminMemberService {
       target.changeStatus(request.getStatus());
       return AdminMemberResponse.from(target);
   }
+
+  // 신고 승인 시 회원 숨김(HIDDEN) 처리 — 관리자 수동 status 변경과 동일 도메인 경로 재사용
+@Transactional
+public void hideMember(Long targetMemberId) { 
+    Member target = memberRepository.findById(targetMemberId)
+            .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
+    if (target.isDeleted() || target.getStatus() == MemberStatus.HIDDEN) { // 이미 탈퇴/숨김이면 no-op
+        return;
+    }
+    if (target.getRole() == Role.ADMIN) { // 관리자 계정은 제재 대상 불가
+        throw new MemberException(MemberErrorCode.CANNOT_CHANGE_ADMIN_STATUS);
+    }
+    target.changeStatus(MemberStatus.HIDDEN);
+}
 }

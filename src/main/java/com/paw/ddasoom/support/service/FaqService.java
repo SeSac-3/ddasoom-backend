@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.paw.ddasoom.common.util.HtmlSanitizer;
 import com.paw.ddasoom.image.domain.OwnerType;
+import com.paw.ddasoom.image.dto.response.ImageResponse;
 import com.paw.ddasoom.image.service.ImageService;
 import com.paw.ddasoom.support.domain.Faq;
 import com.paw.ddasoom.support.dto.request.FaqCreateRequest;
@@ -49,7 +50,8 @@ public class FaqService {
     if (!faq.getIsVisible()) {
       throw new SupportException(SupportErrorCode.FAQ_NOT_FOUND);
     }
-    return FaqResponse.from(faq);
+    List<ImageResponse> images = imageService.getImages(OwnerType.FAQ, faqId);
+    return FaqResponse.from(faq, images);
   }
 
 // ====== 2. 관리자용(CURD) ========
@@ -65,7 +67,9 @@ public class FaqService {
   // 2) FAQ 상세 조회
   @Transactional (readOnly = true)
   public FaqResponse getAdminFaq(Long faqId) {
-    return FaqResponse.from(getFaqEntity(faqId));
+    Faq faq = getFaqEntity(faqId);
+    List<ImageResponse> images = imageService.getImages(OwnerType.FAQ, faqId);
+    return FaqResponse.from(faq, images);
   }
 
   // 3) 새로운 FAQ 등록
@@ -78,7 +82,8 @@ public class FaqService {
       .build();
     Faq savedFaq = faqRepository.save(faq);
     imageService.attach(request.getImageIds(), OwnerType.FAQ, savedFaq.getId());
-    return FaqResponse.from(savedFaq);
+    List<ImageResponse> images = imageService.getImages(OwnerType.FAQ, savedFaq.getId());
+    return FaqResponse.from(savedFaq, images);
   }
 
   // 4) FAQ 수정
@@ -88,7 +93,8 @@ public class FaqService {
     faq.update(request.getCategory(), request.getQuestion(), HtmlSanitizer.sanitize(request.getAnswer()));
     imageService.syncImages(request.getImageIds(), OwnerType.FAQ, faqId);
     faqRepository.flush();
-    return FaqResponse.from(faq);
+    List<ImageResponse> images = imageService.getImages(OwnerType.FAQ, faqId);
+    return FaqResponse.from(faq, images);
   }
 
   /**

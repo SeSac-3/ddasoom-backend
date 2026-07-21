@@ -16,6 +16,7 @@ import com.paw.ddasoom.foster.domain.Foster;
 import com.paw.ddasoom.foster.domain.FosterStatus;
 import com.paw.ddasoom.foster.dto.request.FosterCreateRequest;
 import com.paw.ddasoom.foster.dto.request.FosterUpdateRequest;
+import com.paw.ddasoom.foster.dto.response.FosterPendingApplicationResponse;
 import com.paw.ddasoom.foster.dto.response.FosterUserDetailResponse;
 import com.paw.ddasoom.foster.dto.response.FosterUserListResponse;
 import com.paw.ddasoom.foster.exception.FosterErrorCode;
@@ -39,6 +40,18 @@ public class FosterService {
                 FosterStatus.FOSTERING,
                 FosterStatus.EXTENDED
         );
+
+        /** 신청전 해당 유저가 임시보호 신청이 있는지 조회 */
+        @Transactional(readOnly = true)
+        public FosterPendingApplicationResponse getFosterPendingApplicationStatus(
+                long memberId,
+                long animalId
+        ){
+                boolean hasPendingApplication =
+                                fosterRepository.existsByUser_IdAndAnimal_IdAndDeletedAtIsNullAndStatusIn(
+                                        memberId, animalId, List.of(FosterStatus.PENDING));
+                return new FosterPendingApplicationResponse(hasPendingApplication);
+        }
 
         /** 유저 임시보호 신청 생성 */
         @Transactional
@@ -122,4 +135,5 @@ public class FosterService {
 
                 foster.softDelete();
         }
+        
 }

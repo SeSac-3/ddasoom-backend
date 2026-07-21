@@ -2,6 +2,7 @@ package com.paw.ddasoom.foster.domain;
 
 import java.sql.Types;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.hibernate.annotations.JdbcTypeCode;
@@ -153,6 +154,17 @@ public class Foster extends BaseTimeEntity {
       throw new FosterException(FosterErrorCode.ALREADY_DELETED_FOSTER);
     }
 
+    if (this.status == FosterStatus.PENDING) {
+      throw new FosterException(FosterErrorCode.INVALID_FOSTER_ADMIN_DELETE_STATUS);
+    }
+
+    if (
+        this.status == FosterStatus.FOSTERING ||
+        this.status == FosterStatus.EXTENDED
+    ) {
+      throw new FosterException(FosterErrorCode.INVALID_ACTIVE_FOSTER_ADMIN_DELETE_STATUS);
+    }
+
     this.deletedAt = LocalDateTime.now();
   }
 
@@ -166,11 +178,19 @@ public class Foster extends BaseTimeEntity {
     LocalDateTime fosterExtendAt,
     LocalDateTime fosterCompleteAt
   ){
-    if (this.deletedAt != null){
-      throw new FosterException(FosterErrorCode.ALREADY_DELETED_FOSTER);
+    if (this.deletedAt != null) {
+    throw new FosterException(FosterErrorCode.ALREADY_DELETED_FOSTER);
     }
-    // 상태 변경 불가 검증
+
     validateStatusTransition(status);
+
+    validateEndedScheduleImmutable(
+        fosterStartAt,
+        fosterEndAt,
+        fosterExtendAt,
+        fosterCompleteAt
+    );
+
     this.reviewer = reviewer;
     this.answer = answer;
     this.status = status;
@@ -178,7 +198,30 @@ public class Foster extends BaseTimeEntity {
     this.fosterEndAt = fosterEndAt;
     this.fosterExtendAt = fosterExtendAt;
     this.fosterCompleteAt = fosterCompleteAt;
-  }
+      }
+
+    private void validateEndedScheduleImmutable(
+      LocalDateTime fosterStartAt,
+      LocalDateTime fosterEndAt,
+      LocalDateTime fosterExtendAt,
+      LocalDateTime fosterCompleteAt
+      ) {
+      if (this.status != FosterStatus.ENDED) {
+        return;
+      }
+
+      boolean isScheduleChanged =
+          !Objects.equals(this.fosterStartAt, fosterStartAt) ||
+          !Objects.equals(this.fosterEndAt, fosterEndAt) ||
+          !Objects.equals(this.fosterExtendAt, fosterExtendAt) ||
+          !Objects.equals(this.fosterCompleteAt, fosterCompleteAt);
+
+      if (isScheduleChanged) {
+        throw new FosterException(
+            FosterErrorCode.ENDED_FOSTER_SCHEDULE_IMMUTABLE
+        );
+      }
+    }
 
   // 관리자 상태 변경 시 허용되지 않은 상태 전이를 방지하는 검증 메서드
   private void validateStatusTransition(FosterStatus nextStatus){

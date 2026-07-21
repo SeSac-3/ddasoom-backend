@@ -25,7 +25,10 @@ public enum FosterErrorCode implements ErrorCode {
   INVALID_FOSTER_UPDATE_STATUS(HttpStatus.BAD_REQUEST,"FOSTER_011","신청 대기에서만 임시보호 신청을 수정할 수 있습니다."),
   INVALID_FOSTER_DELETE_STATUS(HttpStatus.BAD_REQUEST,"FOSTER_012","신청 대기 또는 신청 거절 상태에서만 임시보호 신청을 삭제할 수 있습니다."),
   INCOMPLETE_FOSTER_ADMIN_UPDATE(HttpStatus.BAD_REQUEST,"FOSTER_013","관리자 수정 시 기존 답변과 임시보호 일정은 모두 포함해서 보내야 합니다."),
-  REQUIRED_FOSTER_SCHEDULE(HttpStatus.BAD_REQUEST,"FOSTER_014","현재 임시보호 상태에 필요한 일정 정보가 누락되었습니다.");
+  REQUIRED_FOSTER_SCHEDULE(HttpStatus.BAD_REQUEST,"FOSTER_014","현재 임시보호 상태에 필요한 일정 정보가 누락되었습니다."),
+  INVALID_FOSTER_ADMIN_DELETE_STATUS(HttpStatus.BAD_REQUEST,"FOSTER_015","신청 대기 상태의 임시보호 신청은 삭제할 수 없습니다."),
+  INVALID_ACTIVE_FOSTER_ADMIN_DELETE_STATUS(HttpStatus.BAD_REQUEST,"FOSTER_016","임시보호 중인 신청은 삭제할 수 없습니다. 임시보호 중단 처리로 종료해 주세요."),
+  ENDED_FOSTER_SCHEDULE_IMMUTABLE(HttpStatus.BAD_REQUEST,"FOSTER_017","종료된 임시보호 신청의 일정은 수정할 수 없습니다.");
 
 
   private final HttpStatus status;
