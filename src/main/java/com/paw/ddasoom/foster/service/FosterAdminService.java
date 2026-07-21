@@ -320,7 +320,11 @@ public class FosterAdminService {
       throw new FosterException(FosterErrorCode.INVALID_FOSTER_PERIOD);
     }
 
-    if (fosterEndAt != null && fosterExtendAt != null && fosterEndAt.isAfter(fosterExtendAt)) {
+    if (
+    fosterEndAt != null &&
+    fosterExtendAt != null &&
+    !fosterExtendAt.isAfter(fosterEndAt)
+    ) {
       throw new FosterException(FosterErrorCode.INVALID_FOSTER_PERIOD);
     }
 
