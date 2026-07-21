@@ -39,7 +39,7 @@ public class FosterController {
   @GetMapping("/my/pending")
   public ResponseEntity<ApiResponse<FosterPendingApplicationResponse>> getPendingApplicationStatus(
     @AuthenticationPrincipal CustomUserDetails userDetails,
-    @RequestParam Long animalId ) {
+    @RequestParam("animalId") Long animalId ) {
       FosterPendingApplicationResponse response = fosterService.getFosterPendingApplicationStatus(
         userDetails.getMemberId(), animalId);
 
@@ -61,7 +61,7 @@ public class FosterController {
   @PatchMapping("/{fosterId}")
   public ResponseEntity<ApiResponse<Void>> update(
       @AuthenticationPrincipal CustomUserDetails userDetails,
-      @PathVariable Long fosterId,
+      @PathVariable("fosterId") Long fosterId,
       @Valid @RequestBody FosterUpdateRequest request) {
 
     fosterService.update(userDetails.getMemberId(), fosterId, request);
@@ -73,9 +73,9 @@ public class FosterController {
   @GetMapping("/my")
   public ResponseEntity<ApiResponse<PageResponse<FosterUserListResponse>>> getFosterList(
       @AuthenticationPrincipal CustomUserDetails userDetails,
-      @RequestParam(required = false) FosterStatus status,
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "20") int size) {
+      @RequestParam(value = "status", required = false) FosterStatus status,
+      @RequestParam(value = "page", defaultValue = "0") int page,
+      @RequestParam(value = "size", defaultValue = "20") int size) {
     PageResponse<FosterUserListResponse> response = fosterService.getFosterList(
       userDetails.getMemberId(),
       status,
@@ -88,7 +88,7 @@ public class FosterController {
   @GetMapping("/{fosterId}")
   public ResponseEntity<ApiResponse<FosterUserDetailResponse>> getFosterDetail(
       @AuthenticationPrincipal CustomUserDetails userDetails,
-      @PathVariable Long fosterId) {
+      @PathVariable("fosterId") Long fosterId) {
     FosterUserDetailResponse response = fosterService.getFosterDetail(userDetails.getMemberId(), fosterId);
 
     return ResponseEntity.ok(ApiResponse.success(response));
@@ -98,7 +98,7 @@ public class FosterController {
   @DeleteMapping("/{fosterId}")
   public ResponseEntity<ApiResponse<Void>> delete(
       @AuthenticationPrincipal CustomUserDetails userDetails,
-      @PathVariable Long fosterId) {
+      @PathVariable("fosterId") Long fosterId) {
     fosterService.delete(userDetails.getMemberId(), fosterId);
 
     return ResponseEntity.ok(ApiResponse.success("임시보호 신청이 삭제되었습니다."));

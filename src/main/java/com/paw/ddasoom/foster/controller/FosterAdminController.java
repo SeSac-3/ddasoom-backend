@@ -37,7 +37,7 @@ public class FosterAdminController {
   /** 관리자 임시보호신청 조회(디테일) */
   @GetMapping("/{fosterId}")
   public ResponseEntity<ApiResponse<FosterAdminDetailResponse>> getFosterDetail(
-    @PathVariable Long fosterId){
+    @PathVariable("fosterId") Long fosterId){
       FosterAdminDetailResponse response = fosterAdminService.getFosterDetail(fosterId);
 
       return ResponseEntity.ok(ApiResponse.success(response));
@@ -45,15 +45,15 @@ public class FosterAdminController {
   /** 관리자 임시보호신청 조회(리스트) */
   @GetMapping
   public ResponseEntity<ApiResponse<PageResponse<FosterAdminListResponse>>> getFosterList(
-      @RequestParam(required = false) FosterStatus status,
-      @RequestParam(defaultValue = "false") boolean activeOnly,
-      @RequestParam(defaultValue = "false") boolean includeDeleted,
-      @RequestParam(required = false)
+      @RequestParam(value = "status", required = false) FosterStatus status,
+      @RequestParam(value = "activeOnly", defaultValue = "false") boolean activeOnly,
+      @RequestParam(value = "includeDeleted", defaultValue = "false") boolean includeDeleted,
+      @RequestParam(value = "startDate", required = false)
       @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-      @RequestParam(required = false)
+      @RequestParam(value = "endDate", required = false)
       @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "20") int size
+      @RequestParam(value = "page", defaultValue = "0") int page,
+      @RequestParam(value = "size", defaultValue = "20") int size
   ){
     PageResponse<FosterAdminListResponse> response = fosterAdminService.getFosterList(
       status,
@@ -70,7 +70,7 @@ public class FosterAdminController {
   @PatchMapping("/{fosterId}")
   public ResponseEntity<ApiResponse<Void>> update(
     @AuthenticationPrincipal CustomUserDetails userDetails,
-    @PathVariable Long fosterId,
+    @PathVariable("fosterId") Long fosterId,
     @Valid @RequestBody FosterAdminUpdateRequest request) {
       fosterAdminService.updateFoster(userDetails.getMemberId(), fosterId, request);
       return ResponseEntity.ok(ApiResponse.success("임시보호 신청 처리 정보가 수정되었습니다."));
@@ -79,7 +79,7 @@ public class FosterAdminController {
     /** 관리자 임시보호 신청 삭제 */
   @DeleteMapping("/{fosterId}")
   public ResponseEntity<ApiResponse<Void>> delete(
-      @PathVariable Long fosterId) {
+      @PathVariable("fosterId") Long fosterId) {
     fosterAdminService.deleteFoster(fosterId);
 
     return ResponseEntity.ok(
