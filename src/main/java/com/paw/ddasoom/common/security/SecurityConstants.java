@@ -38,6 +38,12 @@ public class SecurityConstants {
       "/api/oauth2/**",            // 소셜 인가 시작
       "/api/login/oauth2/**",      // 소셜 콜백
 
+      // ── Swagger / OpenAPI 문서 (로컬·개발용) ──
+      // ⚠️ 운영 배포 시에는 프로파일 분리로 차단하거나 인증 뒤로 숨길 것 (문서 노출 = 공격 표면)
+      "/swagger-ui/**",
+      "/swagger-ui.html",
+      "/v3/api-docs/**",
+
       // ── 타 도메인 (각 담당자가 추가) ──
       // 예) "/api/animals",  "/api/animals/*",     — 유기동물 목록/상세 조회 
       // 예) "/api/boards/**" GET 만 공개라면 아래 "메서드 분리" 참고 후 담당자와 협의

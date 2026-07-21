@@ -32,12 +32,17 @@ import com.paw.ddasoom.auth.util.JwtUtil;
 import com.paw.ddasoom.common.dto.ApiResponse;
 import com.paw.ddasoom.common.security.CustomUserDetails;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequiredArgsConstructor
+@Tag(name = "인증(Auth)", description = "회원가입·로그인·토큰 재발급·비밀번호 재설정 등 인증 API")
 @RequestMapping("/api/auth")
 public class AuthController {
 
@@ -47,6 +52,16 @@ public class AuthController {
     private final JwtUtil jwtUtil;
 
     /** 이메일 인증 코드 발송 (재발송 겸용) — IP 단위 시간당 제한 적용 (AUTH_007) */
+    @Operation(summary = "이메일 인증 코드 발송", description = """
+            회원가입용 인증 코드를 이메일로 발송합니다. 재발송도 이 API를 사용합니다.
+            - 동일 이메일 60초 쿨다운(AUTH_006), 동일 IP 시간당 10회 제한(AUTH_007)
+            - 이미 가입된 이메일이면 AUTH_001
+            - 비로그인 공개 API""")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "발송 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "이미 가입된 이메일(AUTH_001)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429", description = "쿨다운(AUTH_006) 또는 IP 제한(AUTH_007)")
+    })
     @PostMapping("/email/send")
     public ResponseEntity<ApiResponse<Void>> sendAuthCode(
             @Valid @RequestBody AuthCodeSendRequest request,
@@ -70,6 +85,7 @@ public class AuthController {
     }
 
     /** 이메일 인증 코드 검증 */
+    @Operation(summary = "이메일 인증 코드 검증", description = "발송된 6자리 코드를 검증합니다. 불일치/만료 시 AUTH_004. 비로그인 공개 API.")
     @PostMapping("/email/verify")
     public ResponseEntity<ApiResponse<Void>> verifyAuthCode(@Valid @RequestBody AuthCodeVerifyRequest request) {
         authService.verifyAuthCode(request.getEmail(), request.getCode());
@@ -77,6 +93,12 @@ public class AuthController {
     }
 
     /** 일반 회원가입 */
+    @Operation(summary = "일반 회원가입", description = "이메일 인증 완료 후 회원가입. 성공 시 201. 비로그인 공개 API.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "가입 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "입력값 검증 실패(INVALID_INPUT)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "이메일/닉네임 중복")
+    })
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<SignupResponse>> signup(@Valid @RequestBody SignupRequest request) {
         SignupResponse response = authService.signup(request);
@@ -86,6 +108,14 @@ public class AuthController {
     }
 
     /** 로그인 — AT는 body, RT는 HttpOnly 쿠키 */
+    @Operation(summary = "로그인", description = """
+            일반 로그인. 성공 시 Access Token은 응답 body(data.accessToken), Refresh Token은 HttpOnly 쿠키로 발급됩니다.
+            - 계정 없음·비밀번호 불일치·탈퇴·소셜 전용 계정은 전부 동일하게 AUTH_101 (열거 공격 방지)
+            - 비로그인 공개 API""")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공 (AT=body, RT=쿠키)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패(AUTH_101)")
+    })
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
         LoginService.LoginResult result = loginService.login(request);
@@ -98,6 +128,12 @@ public class AuthController {
     }
 
     /** 토큰 재발급 — RT 로테이션. grace 통과 시(refreshToken == null) 쿠키 미갱신 */
+    @Operation(summary = "토큰 재발급", description = """
+            HttpOnly 쿠키의 Refresh Token으로 새 Access Token을 발급합니다(RT 로테이션).
+            - 멀티탭 동시 요청은 grace(30초)로 흡수, 이 경우 RT 쿠키는 갱신되지 않음
+            - RT 불일치·만료·탈퇴 회원은 AUTH_104 → 재로그인 필요
+            - Authorization 헤더 불필요 (쿠키 기반). 비로그인 공개 API""",
+            security = {})   // 이 API만 Bearer 요구 해제 (RT 쿠키 기반)
     @PostMapping("/reissue")
     public ResponseEntity<ApiResponse<LoginResponse>> reissue(HttpServletRequest request) {
         String refreshToken = cookieUtil.findRefreshToken(request)
@@ -116,6 +152,11 @@ public class AuthController {
     }
 
     /** 로그아웃 — 인증 필수 (SecurityConfig에서 authenticated) */
+    @Operation(summary = "로그아웃", description = """
+            현재 Access Token을 블랙리스트 등록하고 Refresh Token을 삭제합니다.
+            - 인증 필수(Authorize 버튼에 AT 입력 필요)
+            - GUEST 포함 로그인 상태면 누구나 호출 가능""")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그아웃 성공 (RT 쿠키 삭제)")
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -130,6 +171,10 @@ public class AuthController {
     }
 
     /** 비밀번호 재설정 메일 발송 — 이메일 존재 여부와 무관하게 동일 응답 */
+    @Operation(summary = "비밀번호 재설정 메일 발송", description = """
+            재설정 링크를 이메일로 발송합니다.
+            - 이메일 존재 여부와 무관하게 항상 동일한 성공 응답(가입 여부 노출 방지)
+            - 비로그인 공개 API""")
     @PostMapping("/password/reset-request")
     public ResponseEntity<ApiResponse<Void>> sendPasswordResetLink(
             @Valid @RequestBody PasswordResetEmailRequest request) {
@@ -139,6 +184,7 @@ public class AuthController {
     }
 
     /** 토큰으로 비밀번호 재설정 — 성공 시 재로그인 필요 */
+    @Operation(summary = "비밀번호 재설정 실행", description = "메일로 받은 토큰과 새 비밀번호로 재설정합니다. 성공 시 전 세션 무효화되어 재로그인 필요. 비로그인 공개 API.")
     @PostMapping("/password/reset")
     public ResponseEntity<ApiResponse<Void>> resetPassword(
             @Valid @RequestBody PasswordResetRequest request) {
@@ -153,6 +199,8 @@ public class AuthController {
      *    -> 중복확인의 경우 , 형식이 틀린 닉네임은 어차피 DB에 없음. 
      *    -> 형식 검증은 최종 제출의 @Pattern 이 담당하므로 중복역할 제거.
      */
+    @Operation(summary = "닉네임 중복 확인", description = "사용 가능하면 data=true. 가입/추가정보 폼 실시간 검증용. 비로그인 공개 API.")
+    @Parameter(name = "nickname", description = "확인할 닉네임", required = true, example = "하늘이집사")
     @GetMapping("/nickname/available")
     public ResponseEntity<ApiResponse<Boolean>> checkNicknameAvailable(
             @RequestParam("nickname") String nickname) {

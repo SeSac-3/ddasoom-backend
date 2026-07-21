@@ -46,6 +46,9 @@ dependencies {
 	// jsoup - Java HTML Parser : 게시글 미리 보기 태그 문제 해결
 	implementation 'org.jsoup:jsoup:1.22.2'
 
+	// Swagger / OpenAPI 3 (springdoc) — API 문서 자동화. Spring Boot 3.5(Jakarta) 호환 버전
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9'
+
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	runtimeOnly 'com.mysql:mysql-connector-j'
