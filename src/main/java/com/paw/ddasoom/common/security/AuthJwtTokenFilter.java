@@ -30,6 +30,10 @@ import lombok.extern.slf4j.Slf4j;
  * Redis 장애 시에도 fail-close(인증 미설정으로 통과) — 보호 API는 401, 공개 API는 정상.
  * 근거: Redis가 죽으면 로그인/재발급 자체가 불가하므로 fail-open의 실익이 없고,
  *       강제 로그아웃(치안 기능)이 장애를 틈타 무력화되지 않아야 함.
+ *
+ * 트레이드오프: 인증된 요청마다 Redis 조회가 2회(jti 블랙리스트 + 회원 강제로그아웃) 발생한다.
+ *   AT의 완전 무상태 원칙을 일부 양보한 것이지만, "정지된 회원은 즉시 아무것도 못 한다"는
+ *   요구를 충족하기 위한 의도적 선택 (SECURITY-FLOW 5절).
  */
 
 @Slf4j
@@ -50,6 +54,8 @@ public class AuthJwtTokenFilter extends OncePerRequestFilter{
 
       String token = resolveToken(request);
 
+      // 토큰이 없으면 인증 시도 자체를 건너뛴다 — 공개 API는 그대로 통과, 보호 API는 뒤 인가 단계에서 401.
+      // (토큰 없음을 여기서 막지 않는 이유: 공개/보호 구분은 SecurityConfig의 인가 규칙이 담당)
       if (token != null) {
           authenticate(token);
       }
@@ -64,10 +70,14 @@ public class AuthJwtTokenFilter extends OncePerRequestFilter{
       return header.substring(BEARER_PREFIX.length());
   }
 
-  /** 검증 통과 시에만 SecurityContext 등록. 실패 사유는 debug 로그만 (응답은 EntryPoint 담당) */
+  /**
+   * 검증 통과 시에만 SecurityContext 등록. 실패 사유는 debug 로그만 (응답은 EntryPoint 담당).
+   * 아래 ①~⑤는 순서가 중요하다 — 가벼운 검증(서명·category)을 먼저 하고 Redis 조회(③④)를 뒤에 둬서,
+   * 위조/오용 토큰이 불필요하게 Redis를 건드리지 않게 한다.
+   */
   private void authenticate(String token) {
       try {
-          Claims claims = jwtUtil.parseClaims(token); // ① 서명/만료 검증
+          Claims claims = jwtUtil.parseClaims(token); // ① 서명/만료 검증 (실패 시 JwtException)
 
           // ② RT를 AT 자리에 꽂는 오용 차단 — category claim 확인
           if (!JwtUtil.CATEGORY_ACCESS.equals(jwtUtil.getCategory(claims))) {
@@ -89,7 +99,9 @@ public class AuthJwtTokenFilter extends OncePerRequestFilter{
               return;
           }
 
-          Role role = jwtUtil.getRole(claims); // ⑤ 인증 객체 구성
+          // ⑤ 인증 객체 구성 — claims만으로 구성(매 요청 DB 조회 없음).
+          // 권한 변경(GUEST→USER)은 여기 반영 안 되고, reissue로 새 AT를 받은 뒤부터 적용된다.
+          Role role = jwtUtil.getRole(claims);
           CustomUserDetails userDetails = new CustomUserDetails(memberId, role);
 
           UsernamePasswordAuthenticationToken authentication =
@@ -101,6 +113,7 @@ public class AuthJwtTokenFilter extends OncePerRequestFilter{
           // 보호 API는 401로 막고, 강제 로그아웃 차단이 장애를 틈타 뚫리지 않게 한다.
           log.error("인증 중 Redis 접근 실패 — 인증 미설정으로 처리", e);
       } catch (JwtException | IllegalArgumentException e) {
+          // 서명 불일치·만료·구조 손상 — 정상적인 "그냥 유효하지 않은 토큰"이라 debug 레벨.
           log.debug("JWT 검증 실패: {}", e.getMessage());
       }
   }
