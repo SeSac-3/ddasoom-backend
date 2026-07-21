@@ -64,14 +64,10 @@ public class AnimalLikeSyncBatch {
       if ("1".equals(e.getValue())) toInsert.add(new AnimalLikeSyncItem(animalId, memberId));
       else                          toDelete.add(new AnimalLikeSyncItem(animalId, memberId));
     }
-    try {
-      doFlush(toInsert, toDelete, affectedAnimalIds);
-    } catch (Exception e) {
-      log.error("배치를 DB에 write하는데 실패했습니다: {}", e);
-    }
+    doFlush(toInsert, toDelete, affectedAnimalIds);
   }
 
-  public void doFlush(
+  private void doFlush(
     List<AnimalLikeSyncItem> toInsert,
     List<AnimalLikeSyncItem> toDelete,
     Set<Long> affectedAnimalIds) {
