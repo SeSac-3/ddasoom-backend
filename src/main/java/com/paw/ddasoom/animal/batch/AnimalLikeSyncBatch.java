@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -65,17 +64,10 @@ public class AnimalLikeSyncBatch {
       if ("1".equals(e.getValue())) toInsert.add(new AnimalLikeSyncItem(animalId, memberId));
       else                          toDelete.add(new AnimalLikeSyncItem(animalId, memberId));
     }
-    
-    try {
-      doFlush(toInsert, toDelete, affectedAnimalIds);
-      redisTemplate.delete(SNAPSHOT_KEY);   // DB 반영 성공 후에만 스냅샷 통째 삭제
-    } catch (DataAccessException e) {
-      log.error("좋아요 배치 반영 실패, 다음 주기에 재시도합니다.", e);
-    }
-
+    doFlush(toInsert, toDelete, affectedAnimalIds);
   }
 
-  public void doFlush(
+  private void doFlush(
     List<AnimalLikeSyncItem> toInsert,
     List<AnimalLikeSyncItem> toDelete,
     Set<Long> affectedAnimalIds) {

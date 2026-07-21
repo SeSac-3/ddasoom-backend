@@ -77,7 +77,7 @@ public class AnimalFetchService {
   /**
    * API에서 불러온 데이터를 페이지별로 매핑해서 저장
    */
-  public AnimalFetchResponse fetchPage(int pageNo, int numOfRows) {
+  private AnimalFetchResponse fetchPage(int pageNo, int numOfRows) {
     AnimalFetchResponse raw = restClient.get()
         .uri(uriBuilder -> uriBuilder
             .path("/abandonmentPublic_v2")

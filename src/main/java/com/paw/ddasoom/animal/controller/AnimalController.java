@@ -94,8 +94,11 @@ public class AnimalController {
    * 메인페이지 미리보기 — 최근 등록 4건 (공개, 비로그인 노출)
    */
   @GetMapping("/main")
-  public ResponseEntity<ApiResponse<List<AnimalMainPageResponse>>> getMainPreview() {
-    return ResponseEntity.ok(ApiResponse.success(animalQueryService.getMainPreview()));
+  public ResponseEntity<ApiResponse<List<AnimalMainPageResponse>>> getMainPreview(
+    @AuthenticationPrincipal(errorOnInvalidType = false) CustomUserDetails userDetails
+  ) {
+    Long memberId = userDetails != null ? userDetails.getMemberId() : null;
+    return ResponseEntity.ok(ApiResponse.success(animalQueryService.getMainPreview(memberId)));
   }
 
   /**
