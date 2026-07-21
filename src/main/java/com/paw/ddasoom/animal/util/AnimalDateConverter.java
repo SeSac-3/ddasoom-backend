@@ -5,6 +5,9 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import org.springframework.stereotype.Component;
 
+import com.paw.ddasoom.animal.exception.AnimalErrorCode;
+import com.paw.ddasoom.animal.exception.AnimalException;
+
 @Component
 public class AnimalDateConverter {
 
@@ -18,7 +21,7 @@ public class AnimalDateConverter {
             LocalDate date = LocalDate.parse(rawDate, FORMATTER);
             return date.atStartOfDay(); // 00:00:00으로 세팅
         } catch (Exception e) {
-            throw new IllegalArgumentException("날짜 형식을 파싱할 수 없습니다: " + rawDate, e);
+            throw new AnimalException(AnimalErrorCode.ANIMAL_DATE_INVALID);
         }
     }
 }

@@ -121,7 +121,7 @@ public interface ImageRepository extends JpaRepository<Image, Long> {
         SELECT i
         FROM Image i
         WHERE i.ownerType = :ownerType
-        AND i.ownerId IN :ownerType
+        AND i.ownerId IN :ownerIds
         AND i.deletedAt IS NULL
         ORDER BY i.imageOrder ASC 
     """)

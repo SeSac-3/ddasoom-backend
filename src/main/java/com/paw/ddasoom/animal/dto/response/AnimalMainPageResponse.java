@@ -23,9 +23,10 @@ public record AnimalMainPageResponse(
   String vaccinationChk,
   String imageUrl,
   long likeCount,
-  boolean isFostered
+  boolean isFostered,
+  boolean isLiked
 ) {
-  public static AnimalMainPageResponse from(Animal animal) {
+  public static AnimalMainPageResponse from(Animal animal, boolean isLiked) {
     return AnimalMainPageResponse.builder()
       .animalId(animal.getId())
       .abandonmentId(animal.getAbandonmentId())
@@ -43,6 +44,7 @@ public record AnimalMainPageResponse(
       .imageUrl(animal.getImageUrl())
       .likeCount(animal.getLikeCount())
       .isFostered(animal.isFostered())
+      .isLiked(isLiked)
       .build();
   }
 }

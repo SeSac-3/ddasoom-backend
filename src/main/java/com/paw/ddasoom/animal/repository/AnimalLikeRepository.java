@@ -38,4 +38,5 @@ public interface AnimalLikeRepository extends JpaRepository<AnimalLike, Long> {
     + "where al.member.id = :memberId order by al.createdAt desc")
   Page<Animal> findLikedAnimals(@Param("memberId") Long memberId, Pageable pageable);
 
+
 }

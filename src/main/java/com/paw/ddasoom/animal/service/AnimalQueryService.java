@@ -2,6 +2,7 @@ package com.paw.ddasoom.animal.service;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.data.domain.Page;
@@ -63,9 +64,11 @@ public class AnimalQueryService {
 
       // 일반 목록: 좋아요 필터 없음
       Page<Animal> page = animalQueryRepository.search(request, null, pageable);
+      
+      List<Long> animalIds = page.getContent().stream().map(Animal::getId).toList();
 
       // 이번 페이지 동물들 중 내가 좋아요한 id 집합을 한 번에 조회(비로그인이면 빈 집합)
-      Set<Long> likedIds = resolveLikedIds(page.getContent(), memberId);
+      Set<Long> likedIds = resolveLikedIds(animalIds, memberId);
 
       return PageResponse.of(page,
         animal -> AnimalListPageResponse.from(animal, likedIds.contains(animal.getId())));
@@ -84,10 +87,21 @@ public class AnimalQueryService {
   }
 
   // 메인 미리보기 - 최근 등록 4건. 공개(비로그인) 노출이라 isLiked는 계산하지 않는다.
-  public List<AnimalMainPageResponse> getMainPreview() {
-    return animalRepository.findTop4ByOrderByIdDesc().stream()
-      .map(AnimalMainPageResponse::from)
+  public List<AnimalMainPageResponse> getMainPreview(Long memberId) {
+
+    List<Animal> animals = animalRepository.findTop4ByOrderByIdDesc();
+
+    List<Long> animalIds = animals.stream().map(Animal::getId).toList();
+
+    Set<Long> likedIds = resolveLikedIds(animalIds, memberId);
+
+    return animals.stream()
+      .map(animal -> AnimalMainPageResponse.from(animal, likedIds.contains(animal.getId())))
       .toList();
+
+    // return animalRepository.findTop4ByOrderByIdDesc().stream()
+    //   .map(AnimalMainPageResponse::from)
+    //   .toList();
   }
 
   // 마이페이지 - 내가 좋아요한 동물 목록(최근순). 정의상 전부 isLiked=true.
@@ -106,16 +120,22 @@ public class AnimalQueryService {
       animal -> AnimalListPageResponse.from(animal, true));
   }
 
-  // 이번 페이지 동물들 중 내가 좋아요 한 id 집합 (비로그인/빈 페이지면 빈 집함, N+1 방지)
-  private Set<Long> resolveLikedIds(List<Animal> animals, Long memberId) {
+  // 이번 페이지 동물들 중 내가 좋아요 한 id 집합 (비로그인/빈 페이지면 빈 집합, N+1 방지)
+  private Set<Long> resolveLikedIds(List<Long> animalIds, Long memberId) {
 
-    if (memberId == null || animals.isEmpty()) {
+    if (memberId == null || animalIds.isEmpty()) {
       return Set.of();
     }
 
-    List<Long> animalIds = animals.stream().map(Animal::getId).toList();
-
-    return Set.copyOf(animalLikeRepository.findLikedAnimalIds(memberId, animalIds));
+    Set<Long> likedIds = new HashSet<>(animalLikeRepository.findLikedAnimalIds(memberId, animalIds));
+    Map<Long, Boolean> overrides = animalLikeService.getPendingLikeOverrides(memberId, animalIds);
+    overrides.forEach((animalId, liked) -> {
+      if (liked) {
+        likedIds.add(animalId);
+      } else {
+        likedIds.remove(animalId);
+      }});
+    return likedIds;
   }
 
   private Set<Long> resolveEffectiveLikedIds(Long memberId) {
