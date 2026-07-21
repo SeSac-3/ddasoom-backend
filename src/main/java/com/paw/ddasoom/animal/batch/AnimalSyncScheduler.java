@@ -3,12 +3,12 @@ package com.paw.ddasoom.animal.batch;
 import org.springframework.dao.DataAccessException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
+ 
 import com.paw.ddasoom.animal.service.AnimalSyncService;
-
+ 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
+ 
 /**
  * 공공데이터포털 유기동물 데이터 정기 미러링 스케줄러.
  *
@@ -24,14 +24,15 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 @RequiredArgsConstructor
 public class AnimalSyncScheduler {
-
+ 
   private final AnimalSyncService animalSyncService;
-
+ 
   @Scheduled(cron = "0 0 4 * * *", zone = "Asia/Seoul")
   public void scheduledSync() {
     log.info("[AnimalSyncScheduler] 유기동물 정기 동기화 시작");
     try {
-      int savedCount = animalSyncService.syncAnimals().size();
+      // AnimalSyncService가 JDBC 벌크 upsert로 바뀌면서 건수(int)를 바로 반환한다.
+      int savedCount = animalSyncService.syncAnimals();
       log.info("[AnimalSyncScheduler] 정기 동기화 완료 - {}건 저장/갱신", savedCount);
     } catch (DataAccessException e) {
       // 예외를 흡수하지 않으면 스케줄러 스레드가 죽어 이후 실행이 멈춘다.

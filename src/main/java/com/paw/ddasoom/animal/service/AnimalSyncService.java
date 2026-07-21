@@ -7,15 +7,14 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.paw.ddasoom.animal.domain.Animal;
+import com.paw.ddasoom.animal.batch.AnimalSyncItem;
 import com.paw.ddasoom.animal.domain.AnimalGender;
 import com.paw.ddasoom.animal.domain.AnimalKind;
 import com.paw.ddasoom.animal.dto.response.AnimalFetchResponse;
 import com.paw.ddasoom.animal.exception.AnimalException;
-import com.paw.ddasoom.animal.repository.AnimalRepository;
+import com.paw.ddasoom.animal.repository.AnimalSyncJdbcRepository;
 import com.paw.ddasoom.animal.util.AnimalDateConverter;
 import com.paw.ddasoom.animal.util.AnimalNicknameGenerator;
-
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,70 +24,58 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Transactional
 public class AnimalSyncService {
-
-  private final AnimalRepository animalRepository;
+ 
   private final AnimalFetchService animalFetchService;
+  private final AnimalSyncJdbcRepository animalSyncJdbcRepository;
   private final AnimalNicknameGenerator nicknameGenerator;
   private final AnimalDateConverter dateConverter;
-
-  public List<Animal> syncAnimals() {
+ 
+  /**
+   * @return 이번 동기화에서 실제로 upsert된(=검증을 통과한) 건수
+   */
+  public int syncAnimals() {
     List<AnimalFetchResponse.AnimalItem> items = animalFetchService.fetchAnimals();
  
-    List<Animal> savedAnimals = new ArrayList<>();
+    List<AnimalSyncItem> validItems = new ArrayList<>(items.size());
     for (AnimalFetchResponse.AnimalItem item : items) {
-        try {
-            savedAnimals.add(upsert(item));
-        } catch (AnimalException e) {
-            // 값 하나가 이상하다고 8000건이 넘는 전체 동기화를 실패시키지 않는다.
-            // 원본 값을 그대로 로그로 남겨서 실제로 어떤 값이 문제인지 바로 확인 가능하게 한다.
-            log.warn(
-                "동물 동기화 실패 - abandonmentId: {}, kind: '{}', gender: '{}', 사유: {}",
-                item.abandonmentId(), item.kind(), item.gender(), e.getMessage()
-            );
-        }
+      try {
+        validItems.add(toSyncItem(item));
+      } catch (AnimalException e) {
+        // 값 하나가 이상하다고 8000건이 넘는 전체 동기화를 실패시키지 않는다.
+        // 원본 값을 그대로 로그로 남겨서 실제로 어떤 값이 문제인지 바로 확인 가능하게 한다.
+        log.warn(
+            "동물 동기화 실패 - abandonmentId: {}, kind: '{}', gender: '{}', 사유: {}",
+            item.abandonmentId(), item.kind(), item.gender(), e.getMessage()
+        );
+      }
     }
-    return savedAnimals;
+ 
+    animalSyncJdbcRepository.bulkUpsert(validItems);
+ 
+    log.info("동물 동기화 완료 - 유효 {}건 / 전체 {}건 upsert", validItems.size(), items.size());
+    return validItems.size();
   }
-
+ 
   /**
-   * abandonmentId 기준으로 이미 존재하면 업데이트, 없으면 신규 생성
+   * 공공API 원본 아이템을 검증/변환해 벌크 upsert용 아이템으로 만든다.
+   * enum 변환(AnimalKind.from/AnimalGender.from) 또는 날짜 파싱(dateConverter.convert)이 실패하면
+   * AnimalException이 던져지고, 호출부(syncAnimals)에서 해당 건만 건너뛴다.
    */
-  private Animal upsert(AnimalFetchResponse.AnimalItem item) {
-    return animalRepository.findByAbandonmentId(item.abandonmentId())
-        .map(existing -> {
-            existing.updateFromApi(
-                item.kind(),
-                item.gender(),
-                item.typeName(),
-                item.age(),
-                item.location(),
-                item.weight(),
-                item.color(),
-                StringUtils.defaultIfBlank(item.specialMark(), "없음"),
-                StringUtils.defaultIfBlank(item.vaccinationChk(), "접종 안함"),
-                item.imageUrl(),
-                dateConverter.convert(item.rescuedAt())
-            );
-            return existing; // 영속 상태이므로 별도 save 불필요 (dirty checking)
-        })
-        .orElseGet(() -> animalRepository.save(toNewEntity(item)));
-  }
-
-  private Animal toNewEntity(AnimalFetchResponse.AnimalItem item) {
-    return Animal.builder()
-        .abandonmentId(item.abandonmentId())
-        .kind(AnimalKind.from(item.kind()))
-        .nickname(nicknameGenerator.generate())
-        .gender(AnimalGender.from(item.gender()))
-        .typeName(item.typeName())
-        .age(item.age())
-        .location(item.location())
-        .weight(item.weight())
-        .color(item.color())
-        .specialMark(StringUtils.defaultIfBlank(item.specialMark(), "없음"))
-        .vaccinationChk(StringUtils.defaultIfBlank(item.vaccinationChk(), "접종 안함"))
-        .imageUrl(item.imageUrl())
-        .rescuedAt(dateConverter.convert(item.rescuedAt()))
-        .build();
+  private AnimalSyncItem toSyncItem(AnimalFetchResponse.AnimalItem item) {
+    return new AnimalSyncItem(
+        item.abandonmentId(),
+        AnimalKind.from(item.kind()),
+        nicknameGenerator.generate(), // 신규 INSERT일 때만 반영(기존 행이면 SQL이 기존 닉네임 유지)
+        AnimalGender.from(item.gender()),
+        item.typeName(),
+        item.age(),
+        item.location(),
+        item.weight(),
+        item.color(),
+        StringUtils.defaultIfBlank(item.specialMark(), "없음"),
+        StringUtils.defaultIfBlank(item.vaccinationChk(), "접종 안함"),
+        item.imageUrl(),
+        dateConverter.convert(item.rescuedAt())
+    );
   }
 }

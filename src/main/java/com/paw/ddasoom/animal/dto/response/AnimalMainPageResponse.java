@@ -31,7 +31,6 @@ public record AnimalMainPageResponse(
       .animalId(animal.getId())
       .abandonmentId(animal.getAbandonmentId())
       .kind(animal.getKind())
-      .kind(animal.getKind())
       .nickname(animal.getNickname())
       .gender(animal.getGender())
       .typeName(animal.getTypeName())
