@@ -148,7 +148,7 @@ public class ReportService {
         switch (report.getTargetType()) {
             case POST -> { /* TODO: 창호님 forceDeletePost 머지 후 연결 */ }
             case POST_COMMENT -> { /* TODO: 창호님 forceDeleteComment 머지 후 연결 */ }
-            case MEMBER -> hideMember(report.getTargetId());
+            case MEMBER -> adminMemberService.hideMember(report.getTargetId());
         }
     }
 
