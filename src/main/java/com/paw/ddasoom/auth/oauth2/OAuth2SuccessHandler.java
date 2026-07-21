@@ -29,6 +29,10 @@ import lombok.extern.slf4j.Slf4j;
  * 소셜 로그인 성공 처리 — 방식 ⓑ: AT를 만들지 않는다.
  * RT만 발급(Redis + HttpOnly 쿠키)하고 프론트 콜백으로 리다이렉트하면,
  * 콜백 페이지의 reissue가 AT를 발급한다 (일반 로그인과 이후 흐름 통일).
+ *
+ * <p>왜 AT를 여기서 안 만드나: 이 핸들러는 리다이렉트로 끝나므로 AT를 프론트에 안전하게 전달할 방법이
+ * 마땅치 않다(URL 쿼리에 실으면 히스토리·로그에 노출). RT는 HttpOnly 쿠키로 안전하게 심고,
+ * AT 발급은 프론트가 명시적으로 호출하는 reissue에 맡겨 "AT는 항상 body로만 전달"이라는 원칙을 지킨다.
  */
 @Slf4j
 @Component
@@ -48,6 +52,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler{
   public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                       Authentication authentication) throws IOException {
 
+      // CustomOAuth2UserService가 attributes에 심어둔 memberId를 꺼낸다(그 외 정보는 불필요)
       OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
       Long memberId = ((Number) oAuth2User.getAttributes()
               .get(CustomOAuth2UserService.MEMBER_ID_KEY)).longValue();
@@ -63,18 +68,19 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler{
 
       recordLoginLog(memberId, resolveLoginType(authentication));
 
-      // 프론트 콜백으로 — 이 페이지가 reissue를 호출해 AT를 받는다
+      // 프론트 콜백으로 — 이 페이지가 reissue를 호출해 AT를 받는다.
+      // GUEST면 콜백에서 추가정보 입력으로, USER면 홈으로 분기(분기는 프론트 몫).
       getRedirectStrategy().sendRedirect(request, response, serviceUrl + "/oauth/callback");
   }
 
-  /** registrationId(kakao/naver/google) → LoginType */
+  /** registrationId(kakao/naver/google) → LoginType. 소셜 3사 이름이 곧 enum 상수명과 일치 */
   private LoginType resolveLoginType(Authentication authentication) {
       String registrationId = ((OAuth2AuthenticationToken) authentication)
               .getAuthorizedClientRegistrationId();
       return LoginType.valueOf(registrationId.toUpperCase());
   }
 
-  /** 일반 로그인과 동일 원칙 — 로그 실패가 로그인 실패로 이어지지 않도록 격리 */
+  /** 일반 로그인과 동일 원칙 — 로그 실패가 로그인 실패로 이어지지 않도록 격리 (컨벤션 6) */
   private void recordLoginLog(Long memberId, LoginType loginType) {
       try {
           loginLogRepository.save(LoginLog.builder()

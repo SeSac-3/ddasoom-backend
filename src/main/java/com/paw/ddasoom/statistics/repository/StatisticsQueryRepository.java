@@ -132,7 +132,12 @@ public class StatisticsQueryRepository {
                 """).getResultList();
     }
 
-    /** 임보 신청 많은 동물 TOP10 — 신청 건수(전 상태) 기준. 동물 정보는 조인으로 함께 */
+    /**
+     * 임보 신청 많은 동물 TOP10 — 신청 건수(전 상태) 기준. 동물 정보는 조인으로 함께.
+     * groupBy에 동물의 표시 필드를 전부 넣는 이유: SELECT에 집계 아닌 컬럼이 오면 group by에 포함돼야 하고
+     * (MySQL only_full_group_by), 이 필드들은 animal.id에 함수 종속이라 결과 행 수에 영향을 주지 않는다.
+     * 종별 필터는 여기서 하지 않고 프론트가 kind로 거른다(전체 순위를 유지한 채 필터하기 위함).
+     */
     public List<Tuple> findTopFosterAnimals(int limit) {
         QFoster foster = QFoster.foster;
         QAnimal animal = QAnimal.animal;

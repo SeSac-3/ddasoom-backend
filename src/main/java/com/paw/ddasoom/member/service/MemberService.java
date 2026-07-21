@@ -28,6 +28,16 @@ import com.paw.ddasoom.member.repository.MemberRepository;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * 본인 회원 기능 — 추가정보 승급, 내 정보 조회/수정, 로그인 이력, 비밀번호 변경, 탈퇴.
+ *
+ * <p>이 서비스의 모든 메서드는 memberId를 <b>파라미터로</b> 받는다(SecurityContext 직접 의존 금지 —
+ * 테스트 가능성 + 비동기 스레드 안전성, 컨벤션 6). 신원은 컨트롤러가 토큰에서 추출해 넘긴다.
+ *
+ * <p>조회의 두 경로를 명확히 구분한다:
+ * getMember(활성만, 탈퇴면 예외) vs getMemberIncludingDeleted(탈퇴 포함, 관리자 전용).
+ * 일반 로직이 전자를 쓰기만 하면 "탈퇴 회원 대상 작업"이 구조적으로 차단된다.
+ */
 @Service
 @RequiredArgsConstructor
 public class MemberService {
@@ -42,7 +52,7 @@ public class MemberService {
   /**
    * 소셜 가입자(GUEST) 추가정보 입력 → USER 승급.
    * 인가(GUEST만 접근)는 SecurityConfig가 담당하지만, 상태 검증은 서비스에서 한 번 더 —
-   * 시큐리티 규칙이 실수로 풀려도 이미 USER인 회원의 재호출은 막혀야 한다.
+   * 시큐리티 규칙이 실수로 풀려도 이미 USER인 회원의 재호출은 막혀야 한다(방어적 이중 검증).
    */
   @Transactional
   public MemberResponse completeSignup(Long memberId, SocialExtraInfoRequest request) {
@@ -90,6 +100,7 @@ public class MemberService {
       return MemberResponse.from(getMember(memberId));
   }
 
+  /** 최근 로그인 이력 5건 — 마이페이지 미리보기. "낯선 로그인" 자가 점검용 */
   @Transactional(readOnly = true)
   public List<LoginLogResponse> getMyRecentLoginLogs(Long memberId) {
         return loginLogRepository.findTop5ByMemberIdOrderByCreatedAtDesc(memberId).stream()
@@ -97,6 +108,7 @@ public class MemberService {
                 .toList();
     }
 
+  /** 로그인 이력 전체(페이징) — 미리보기 5건 외 과거 이력까지 */
   @Transactional(readOnly = true)
   public PageResponse<LoginLogResponse> getMyLoginLogs(Long memberId, Pageable pageable) {
         Page<LoginLog> page = loginLogRepository.findByMemberIdOrderByCreatedAtDesc(memberId, pageable);
@@ -108,6 +120,7 @@ public class MemberService {
   public MemberResponse updateProfile(Long memberId, MemberUpdateRequest request) {
       Member member = getMember(memberId);
 
+      // 본인이 기존 닉네임 그대로 제출한 경우까지 중복 에러를 내면 안 되므로, "실제 변경"일 때만 검사
       boolean isNicknameChanged = !request.getNickname().equals(member.getNickname());
       if (isNicknameChanged && memberRepository.existsByNickname(request.getNickname())) {
           throw new AuthException(AuthErrorCode.NICKNAME_ALREADY_EXISTS);
@@ -132,7 +145,8 @@ public class MemberService {
 
       member.changePassword(passwordEncoder.encode(request.getNewPassword()));
 
-      // 비밀번호 변경 = 자격증명 교체 → 기존 세션 전부 무효화 (탈취 의심 시나리오 방어)
+      // 비밀번호 변경 = 자격증명 교체 → 기존 세션 전부 무효화 (탈취 의심 시나리오 방어).
+      // 단 강제로그아웃 마커는 안 건다 — 탈퇴처럼 "신원 소멸"이 아니라 RT 무효화로 충분(SECURITY-FLOW 5절).
       redisTokenService.deleteRefreshTokens(memberId);
   }
 
