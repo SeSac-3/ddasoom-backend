@@ -1,86 +1,58 @@
--- =============================================
--- [개발용 더미] animal (local/test 전용)
--- =============================================
+-- =============================================================
+-- V101__seed_animal.sql  [개발용 더미 — 전면 리빌드 2026-07]
+-- 로컬/테스트 전용. fresh 마이그레이션 전제.
+--
+-- 통계 검증 목표:
+--  * 종별 도넛: 개(D) ≈ 2/3, 고양이(C) ≈ 1/3 비율로 분산 (전체 100마리)
+--  * 지역 분포: location 첫 토큰 = 시/도 — 광역 17개 전부에 분산 (SUBSTRING_INDEX 집계 대상)
+--  * TOP10: 명시 동물 10마리(이름 식별 가능)가 V103에서 신청을 몰아받아 순위 형성
+--  * age/weight는 V2 개정대로 문자열 원본 (SMALLINT/DECIMAL 아님)
+--  * animal은 V9에서 deleted_at 드롭 — soft delete 케이스 없음
+-- =============================================================
 
--- [동물-1] 기본 정상 케이스: 개, 수컷, 전 필드 채움, like_count가 실제 animal_like 활성 행 수(2)와 일치
+-- ── 1. 명시 동물 10마리 (TOP10 후보 — V103 신청이 이 애들에게 몰림) ──────────
 INSERT INTO `animal` (`abandonment_id`, `kind`, `nickname`, `gender`, `type_name`, `age`, `location`, `weight`, `color`,
-                      `special_mark`, `vaccination_chk`, `image_url`, `like_count`, `is_fostered`, `rescued_at`,
-                      `created_at`, `updated_at`)
-VALUES ('413587202600162', 'D', '뭉치', 'M', '말티즈', '2024', '서울특별시 강남구', '3.2', '흰색',
-        '오른쪽 귀 접힘', '접종완료', 'http://openapi.animal.go.kr/openapi/service/rest/fileDownloadSrvc/files/shelter/2026/07/202607081107865.jpg', 2, FALSE, '2026-06-01 08:00:00.000000',
-        '2026-06-02 09:00:00.000000', '2026-06-02 09:00:00.000000');
+                      `special_mark`, `vaccination_chk`, `image_url`, `like_count`, `is_fostered`, `rescued_at`, `created_at`, `updated_at`) VALUES
+    ('413587202600162', 'D', '뭉치', 'M', '말티즈',       '2024', '서울특별시 강남구',   '3.2',  '흰색',   '오른쪽 귀 접힘',   '접종완료',  NULL, 0, FALSE, DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 50 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 49 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 49 DAY)),
+    ('469569202600557', 'C', '나비', 'F', '코리안숏헤어', '2023', '경기도 수원시',       '3.8',  '고등어', '사람 잘 따름',     '접종완료',  NULL, 0, FALSE, DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 48 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 47 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 47 DAY)),
+    ('450650202601690', 'D', '초코', 'F', '믹스견',       '2022', '부산광역시 해운대구', '12.5', '갈색',   '경계심 많음',      '접종 안함', NULL, 0, TRUE,  DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 46 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 45 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 45 DAY)),
+    ('441323202600881', 'D', '보리', 'M', '진돗개',       '2021', '전라남도 목포시',     '15.0', '황색',   '활발함',           '접종완료',  NULL, 0, TRUE,  DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 44 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 43 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 43 DAY)),
+    ('427701202600233', 'C', '치즈', 'M', '치즈태비',     '2024', '인천광역시 남동구',   '2.9',  '치즈',   '겁이 많음',        '접종 안함', NULL, 0, FALSE, DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 42 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 41 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 41 DAY)),
+    ('435812202601104', 'D', '해피', 'F', '푸들',         '2023', '대구광역시 수성구',   '4.1',  '베이지', '왼쪽 뒷다리 절음', '접종완료',  NULL, 0, FALSE, DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 40 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 39 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 39 DAY)),
+    ('448290202600412', 'C', '까망', 'F', '봄베이',       '2022', '광주광역시 북구',     '3.5',  '검정',   '없음',             '접종완료',  NULL, 0, TRUE,  DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 38 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 37 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 37 DAY)),
+    ('452117202600790', 'D', '탄이', 'M', '리트리버',     '2020', '충청남도 천안시',     '24.3', '골드',   '온순함',           '접종완료',  NULL, 0, TRUE,  DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 36 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 35 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 35 DAY)),
+    ('439004202601377', 'C', '구름', 'F', '터키시앙고라', '2023', '제주특별자치도 제주시', '3.1', '흰색',  '장모종',           '접종 안함', NULL, 0, FALSE, DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 34 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 33 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 33 DAY)),
+    ('444561202600925', 'D', '밤톨', 'M', '시바견',       '2024', '경상북도 포항시',     '8.7',  '적갈색', '분리불안 있음',    '접종완료',  NULL, 0, FALSE, DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 32 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 31 DAY), DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 31 DAY));
 
--- [동물-2] DB DEFAULT 값 활용 케이스: nickname/gender/special_mark/vaccination_chk 전부 미지정 -> DEFAULT('미정'/'Q'/'없음'/'접종 안함') 적용 확인
-INSERT INTO `animal` (`abandonment_id`, `kind`, `type_name`, `age`, `location`, `weight`, `color`,
-                      `image_url`, `like_count`, `is_fostered`, `rescued_at`,
-                      `created_at`, `updated_at`)
-VALUES ('469569202600557', 'C', '코리안숏헤어', '2023', '경기도 수원시', '3.8', '고등어',
-        NULL, 0, FALSE, '2026-05-15 07:30:00.000000',
-        '2026-05-16 10:00:00.000000', '2026-05-16 10:00:00.000000');
-
--- [동물-3] gender=F, is_fostered=TRUE(임시보호 중) 케이스 - 임시보호 필터 쿼리 검증용
+-- ── 2. 대량 동물 90마리 — 시/도 17개 순환 + 종 2:1 분산 ────────────────────
+-- kind: n MOD 3 → 0,1이면 D(개), 2면 C(고양이) ≈ 2:1
+-- location: 시/도 17개를 n MOD 17로 순환 → 전 지역에 5~6마리씩 (지역 분포 차트가 꽉 참)
 INSERT INTO `animal` (`abandonment_id`, `kind`, `nickname`, `gender`, `type_name`, `age`, `location`, `weight`, `color`,
-                      `special_mark`, `vaccination_chk`, `image_url`, `like_count`, `is_fostered`, `rescued_at`,
-                      `created_at`, `updated_at`)
-VALUES ('450650202601690', 'D', '초코', 'F', '믹스견', '2022', '부산광역시 해운대구', '12.5', '갈색',
-        '경계심 많음', '접종 안함', 'http://openapi.animal.go.kr/openapi/service/rest/fileDownloadSrvc/files/shelter/2026/07/202607082107857.jpeg', 1, TRUE, NULL,
-        '2026-04-01 09:00:00.000000', '2026-04-20 09:00:00.000000');
-
--- [동물-4] soft-delete 된 동물 - 목록/상세 조회 시 deleted_at IS NULL 필터로 제외되는지 검증용
-INSERT INTO `animal` (`abandonment_id`, `kind`, `nickname`, `gender`, `type_name`, `age`, `location`, `weight`, `color`,
-                      `special_mark`, `vaccination_chk`, `image_url`, `like_count`, `is_fostered`, `rescued_at`,
-                      `created_at`, `updated_at`)
-VALUES ('450650202601689', 'C', '나비', 'M', '페르시안', '2021', '인천광역시 남동구', '4.1', '검정색',
-        '없음', '접종완료', NULL, 1, TRUE, '2026-03-10 06:00:00.000000',
-        '2026-03-11 08:00:00.000000', '2026-06-01 12:00:00.000000');
-
--- [동물-5] age/weight에 공공API 원본 그대로의 지저분한 문자열 저장 - VARCHAR 전환의 핵심 목적(파싱 없이 원본 보존) 검증용
-INSERT INTO `animal` (`abandonment_id`, `kind`, `nickname`, `gender`, `type_name`, `age`, `location`, `weight`, `color`,
-                      `special_mark`, `vaccination_chk`, `image_url`, `like_count`, `is_fostered`, `rescued_at`,
-                      `created_at`, `updated_at`)
-VALUES ('448567202601029', 'D', '콩이', 'Q', '푸들', '2026(년생) 추정 2개월', '대구광역시 수성구', '0.3(Kg) 추정', '베이지',
-        '포유 중', '접종 안함', 'https://example.com/images/animal5.jpg', 0, FALSE, '2026-06-25 05:00:00.000000',
-        '2026-06-25 09:00:00.000000', '2026-06-25 09:00:00.000000');
-
--- [동물-6] age/weight 원본이 아예 미상인 극단 케이스 - 빈 값에 가까운 원본 문자열 저장 확인
-INSERT INTO `animal` (`abandonment_id`, `kind`, `nickname`, `gender`, `type_name`, `age`, `location`, `weight`, `color`,
-                      `special_mark`, `vaccination_chk`, `image_url`, `like_count`, `is_fostered`, `rescued_at`,
-                      `created_at`, `updated_at`)
-VALUES ('450650202601688', 'C', '미정탐정', 'Q', '한국고양이', '나이 미상(공고문 기재 누락)', '강원특별자치도 춘천시', '체중 미상', '삼색',
-        '없음', '접종 안함', NULL, 0, FALSE, NULL,
-        '2026-07-01 09:00:00.000000', '2026-07-01 09:00:00.000000');
-
--- [동물-7] abandonment_id가 VARCHAR(20) 최대 길이에 근접한 경계값 케이스 (길이 제약 검증용)
-INSERT INTO `animal` (`abandonment_id`, `kind`, `nickname`, `gender`, `type_name`, `age`, `location`, `weight`, `color`,
-                      `special_mark`, `vaccination_chk`, `image_url`, `like_count`, `is_fostered`, `rescued_at`,
-                      `created_at`, `updated_at`)
-VALUES ('448567202601027', 'D', '대박이', 'M', '진돗개', '2018', '전라남도 여수시', '45.9', '황색',
-        '없음', '접종완료', 'http://openapi.animal.go.kr/openapi/service/rest/fileDownloadSrvc/files/shelter/2026/07/202607081607515.jpg', 3, FALSE, '2026-02-14 03:00:00.000000',
-        '2026-02-15 07:00:00.000000', '2026-02-15 07:00:00.000000');
-
--- [동물-8] nickname/type_name/color가 컬럼 최대 길이(50자)에 꽉 찬 경계값 케이스
-INSERT INTO `animal` (`abandonment_id`, `kind`, `nickname`, `gender`, `type_name`, `age`, `location`, `weight`, `color`,
-                      `special_mark`, `vaccination_chk`, `image_url`, `like_count`, `is_fostered`, `rescued_at`,
-                      `created_at`, `updated_at`)
-VALUES ('448545202600355', 'D',
-        '가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아', 'F',
-        '아주아주아주아주아주아주아주아주아주아주아주아주아주아주아주아주아주아주긴품종이름오십자', '2020',
-        '충청북도 청주시', '9.4', '갈색과흰색이섞인아주긴색깔이름오십자까지채워보는테스트용문자열입니당', '없음', '접종완료',
-        'http://openapi.animal.go.kr/openapi/service/rest/fileDownloadSrvc/files/shelter/2026/07/202607081107958.jpg', 1, FALSE, '2026-01-20 04:00:00.000000',
-        '2026-01-21 08:00:00.000000', '2026-06-30 08:00:00.000000');
-
--- [동물-9] like_count 캐시(5)와 실제 animal_like 활성 행 수(1)가 의도적으로 불일치 - Write-Behind 동기화 배치 검증용
-INSERT INTO `animal` (`abandonment_id`, `kind`, `nickname`, `gender`, `type_name`, `age`, `location`, `weight`, `color`,
-                      `special_mark`, `vaccination_chk`, `image_url`, `like_count`, `is_fostered`, `rescued_at`,
-                      `created_at`, `updated_at`)
-VALUES ('448543202600168', 'D', '싱크로', 'F', '비글', '2020', '광주광역시 서구', '9.4', '갈색/흰색',
-        '없음', '접종완료', 'http://openapi.animal.go.kr/openapi/service/rest/fileDownloadSrvc/files/shelter/2026/07/202607081107992.jpg', 5, FALSE, '2026-01-20 04:00:00.000000',
-        '2026-01-21 08:00:00.000000', '2026-06-30 08:00:00.000000');
-
--- [동물-10] 좋아요 0건, image_url NULL, rescued_at NULL - 연관 데이터/선택값이 전부 비어있는 최소 데이터 케이스
-INSERT INTO `animal` (`abandonment_id`, `kind`, `nickname`, `gender`, `type_name`, `age`, `location`, `weight`, `color`,
-                      `special_mark`, `vaccination_chk`, `image_url`, `like_count`, `is_fostered`, `rescued_at`,
-                      `created_at`, `updated_at`)
-VALUES ('448542202600755', 'C', '민들레', 'F', '터키시앙고라', '2025', '제주특별자치도 제주시', '2.9', '흰색',
-        '없음', '접종 안함', NULL, 0, FALSE, NULL,
-        '2026-07-05 09:00:00.000000', '2026-07-05 09:00:00.000000');
+                      `image_url`, `like_count`, `is_fostered`, `rescued_at`, `created_at`, `updated_at`)
+WITH RECURSIVE seq(n) AS (
+    SELECT 1 UNION ALL SELECT n + 1 FROM seq WHERE n < 90
+)
+SELECT
+    CONCAT('49', LPAD(n, 4, '0'), '2026', LPAD(n * 7 MOD 10000, 5, '0')),   -- 유기번호 유니크 패턴
+    IF(n MOD 3 = 2, 'C', 'D'),
+    CONCAT('더미동물', n),
+    ELT((n MOD 3) + 1, 'M', 'F', 'Q'),
+    IF(n MOD 3 = 2,
+       ELT((n MOD 4) + 1, '코리안숏헤어', '러시안블루', '페르시안', '샴'),
+       ELT((n MOD 5) + 1, '믹스견', '말티즈', '푸들', '진돗개', '포메라니안')),
+    CAST(2019 + (n MOD 7) AS CHAR),                                          -- 출생연도 2019~2025 문자열
+    CONCAT(
+        ELT((n MOD 17) + 1,
+            '서울특별시', '부산광역시', '대구광역시', '인천광역시', '광주광역시',
+            '대전광역시', '울산광역시', '세종특별자치시', '경기도', '강원특별자치도',
+            '충청북도', '충청남도', '전북특별자치도', '전라남도', '경상북도',
+            '경상남도', '제주특별자치도'),
+        ' ', ELT((n MOD 4) + 1, '중앙동', '행복구', '초록시', '푸른군')),
+    CAST(ROUND(2 + (n MOD 20) * 0.7, 1) AS CHAR),                            -- 몸무게 2.0~15.3 문자열
+    ELT((n MOD 5) + 1, '흰색', '검정', '갈색', '고등어', '삼색'),
+    NULL,
+    0, FALSE,
+    DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL (30 + (n MOD 150)) DAY),
+    DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL (29 + (n MOD 150)) DAY),
+    DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL (29 + (n MOD 150)) DAY)
+FROM seq;
