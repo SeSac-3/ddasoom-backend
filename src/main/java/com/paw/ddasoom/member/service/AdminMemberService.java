@@ -24,6 +24,16 @@ import com.paw.ddasoom.member.repository.MemberSocialRepository;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * 관리자 회원 관리 — 목록·상세, 로그인 이력, 강제 탈퇴/복구, 노출 상태 제재.
+ *
+ * <p>MemberService의 조회/탈퇴 로직을 재사용한다(중복 구현 금지). 특히 조회는 목적에 따라
+ * 활성 전용(getMember)과 탈퇴 포함(getMemberIncludingDeleted)을 의도적으로 골라 쓴다 —
+ * 복구·상세는 탈퇴 회원을 봐야 하므로 후자, 제재(강제탈퇴·상태변경)는 활성 대상만이라 전자.
+ *
+ * <p>관리자 계정 보호: 강제 탈퇴·상태 변경 모두 ADMIN 대상은 불가(자기 자신 포함).
+ * "관리자끼리 상호 제재"로 서비스가 마비되는 상황을 원천 차단한다.
+ */
 @Service
 @RequiredArgsConstructor
 public class AdminMemberService {
@@ -36,10 +46,10 @@ public class AdminMemberService {
   private final JwtUtil jwtUtil;
 
 
-  /** 목록 — 탈퇴 회원 포함 전체. 상태 구분은 응답의 deletedAt으로 프론트가 표시 */
+  /** 목록 — 탈퇴 회원 포함 전체. 상태 구분은 응답의 deletedAt/status로 프론트가 표시 */
   @Transactional(readOnly = true)
   public PageResponse<AdminMemberResponse> getMembers(String keyword, Role role, Pageable pageable) {
-      // 빈 문자열 keyword는 null로 정규화 (JPQL 조건 미적용)
+      // 빈 문자열 keyword는 null로 정규화 (JPQL 조건 미적용 — "빈 검색 = 전체"가 되게)
       String normalizedKeyword = (keyword == null || keyword.isBlank()) ? null : keyword;
 
       Page<Member> page = memberRepository.searchForAdmin(normalizedKeyword, role, pageable);
@@ -60,8 +70,8 @@ public class AdminMemberService {
   /** 로그인 이력 (페이징) — 탈퇴 회원 포함 */
   @Transactional(readOnly = true)
   public PageResponse<LoginLogResponse> getLoginLogs(Long memberId, Pageable pageable) {
-      // 탈퇴 회원 포함 — 제재/복구 판단 시 탈퇴 회원의 이력도 조회 대상
-      memberService.getMemberIncludingDeleted(memberId);   // 회원 없음(MEMBER_001)과 이력 없음(빈 페이지)을 구분
+      // 존재 검증만 먼저 수행(탈퇴 포함) — "회원 없음(MEMBER_001)"과 "이력 없음(빈 페이지)"을 구분해 응답하기 위함
+      memberService.getMemberIncludingDeleted(memberId);
 
       Page<LoginLog> page = loginLogRepository.findByMemberIdOrderByCreatedAtDesc(memberId, pageable);
       return PageResponse.of(page, LoginLogResponse::from);
@@ -70,6 +80,7 @@ public class AdminMemberService {
   /** 강제 탈퇴 — ADMIN 계정 불가(자기 자신 포함). withdraw가 soft delete + RT 삭제 + AT 마커까지 한 세트로 처리 */
   @Transactional
   public void forceWithdraw(Long targetMemberId) {
+      // 활성 조회 — 이미 탈퇴한 회원을 또 강제탈퇴하는 무의미한 호출은 getMember가 MEMBER_003으로 차단
       Member target = memberService.getMember(targetMemberId);
 
       if (target.getRole() == Role.ADMIN) {
@@ -85,7 +96,7 @@ public class AdminMemberService {
       // 활성 회원 복구 시도의 거절은 member.restore() 내부 검사가 담당
       Member member = memberService.getMemberIncludingDeleted(memberId);
       member.restore();   // 탈퇴 상태가 아니면 MEMBER_006
-      redisTokenService.clearForceLogout(memberId);   // 복구 = 차단 해제까지
+      redisTokenService.clearForceLogout(memberId);   // 복구 = 차단 해제까지 (DB·Redis 양쪽 되돌리는 온전한 역연산)
       return AdminMemberResponse.from(member);
   }
 
@@ -106,17 +117,25 @@ public class AdminMemberService {
       return AdminMemberResponse.from(target);
   }
 
-  // 신고 승인 시 회원 숨김(HIDDEN) 처리 — 관리자 수동 status 변경과 동일 도메인 경로 재사용
-@Transactional
-public void hideMember(Long targetMemberId) { 
-    Member target = memberRepository.findById(targetMemberId)
-            .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
-    if (target.isDeleted() || target.getStatus() == MemberStatus.HIDDEN) { // 이미 탈퇴/숨김이면 no-op
-        return;
+    /**
+     * 신고 승인 시 회원 숨김(HIDDEN) 처리 — 신고 도메인(ReportService.approveReport)이 호출하는 진입점.
+     * 관리자 수동 changeStatus와 같은 도메인 경로(Member.changeStatus)를 재사용해 "회원 상태의 진실"을
+     * member 도메인 한 곳에만 둔다.
+     *
+     * <p>여기서 getMember(활성 조회)를 안 쓰고 findById로 직접 조회하는 이유: 신고 승인은 배치성 호출이라
+     * 이미 탈퇴/숨김인 대상에 대해 예외를 던지기보다 <b>조용히 no-op</b>으로 넘어가는 게 맞다
+     * (같은 신고를 두 번 승인해도 안전하도록 — 멱등성).
+     */
+    @Transactional
+    public void hideMember(Long targetMemberId) { 
+        Member target = memberRepository.findById(targetMemberId)
+                .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
+        if (target.isDeleted() || target.getStatus() == MemberStatus.HIDDEN) { // 이미 탈퇴/숨김이면 no-op
+            return;
+        }
+        if (target.getRole() == Role.ADMIN) { // 관리자 계정은 제재 대상 불가
+            throw new MemberException(MemberErrorCode.CANNOT_CHANGE_ADMIN_STATUS);
+        }
+        target.changeStatus(MemberStatus.HIDDEN);
     }
-    if (target.getRole() == Role.ADMIN) { // 관리자 계정은 제재 대상 불가
-        throw new MemberException(MemberErrorCode.CANNOT_CHANGE_ADMIN_STATUS);
-    }
-    target.changeStatus(MemberStatus.HIDDEN);
-}
 }

@@ -15,6 +15,7 @@ import com.paw.ddasoom.auth.exception.AuthException;
 import com.paw.ddasoom.auth.repository.LoginLogRepository;
 import com.paw.ddasoom.auth.util.JwtUtil;
 import com.paw.ddasoom.member.domain.Member;
+import com.paw.ddasoom.member.domain.MemberStatus;
 import com.paw.ddasoom.member.repository.MemberRepository;
 
 import io.jsonwebtoken.Claims;
@@ -72,12 +73,23 @@ public class LoginService {
       Member member = memberRepository.findByEmail(request.getEmail())
               .orElseThrow(() -> new AuthException(AuthErrorCode.INVALID_CREDENTIALS));
 
-      // 차단 사유 3종을 하나의 boolean으로 합쳐 동일 예외로 던진다 — 어느 사유든 응답이 같아야 열거 공격 방지
-      boolean isLoginBlocked = member.isDeleted()
-              || member.getPassword() == null   // 소셜 전용 회원 — 비밀번호 로그인 불가
+      // ── C안: 비밀번호를 '먼저' 검증한다 ──────────────────────────────────
+      // 계정 없음 / 소셜 전용(비번 null) / 비번 불일치는 전부 AUTH_101 하나로 — 열거 공격 방지.
+      // 이 관문을 통과하지 못하면 아래 상태(탈퇴/숨김) 사유는 절대 노출되지 않는다.
+      // → "정당한 본인(비번을 아는 사람)"에게만 탈퇴/숨김 사유를 안내하는 것이 C안의 핵심.
+      boolean isPasswordInvalid = member.getPassword() == null   // 소셜 전용 회원 — 비밀번호 로그인 불가
               || !matchesPassword(request.getPassword(), member.getPassword());
-      if (isLoginBlocked) {
+      if (isPasswordInvalid) {
           throw new AuthException(AuthErrorCode.INVALID_CREDENTIALS);
+      }
+
+      // ── 비번이 맞은 뒤에만 계정 상태를 검사해 '구분된' 사유를 안내한다 ──────
+      // 탈퇴가 숨김보다 우선(탈퇴는 계정 자체가 소멸된 더 상위 상태).
+      if (member.isDeleted()) {
+          throw new AuthException(AuthErrorCode.WITHDRAWN_MEMBER);   // AUTH_109
+      }
+      if (member.getStatus() == MemberStatus.HIDDEN) {
+          throw new AuthException(AuthErrorCode.BLOCKED_MEMBER);     // AUTH_110
       }
 
       String accessToken = jwtUtil.createAccessToken(member.getId(), member.getRole());

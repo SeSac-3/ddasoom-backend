@@ -1,6 +1,7 @@
 package com.paw.ddasoom.board.repository;
 
 import com.paw.ddasoom.board.domain.PostComment;
+import com.paw.ddasoom.board.dto.projection.AdminCommentListProjection;
 import com.paw.ddasoom.board.dto.projection.CommentListProjection;
 import com.paw.ddasoom.board.dto.projection.MyCommentListProjection;
 import org.springframework.data.domain.Page;
@@ -51,6 +52,28 @@ public interface PostCommentRepository extends JpaRepository<PostComment, Long> 
                     "WHERE c.post.id = :postId AND c.deletedAt IS NULL"
     )
     Page<CommentListProjection> findCommentsByPostId(@Param("postId") Long postId, Pageable pageable);
+
+    /**
+     * [관리자] 특정 게시글의 댓글 목록 — 삭제된 댓글 포함.
+     *
+     * <p>사용자용 {@link #findCommentsByPostId}와 달리 {@code c.deletedAt IS NULL} 조건이 없다:
+     * 관리자는 삭제된 댓글도 확인할 수 있어야 하므로 상태를 그대로 내려주고, 프론트가 뱃지로 구분한다.
+     * projection에 deletedAt이 포함된 점만 다르고 정렬(오래된 순)은 동일.
+     *
+     * @param postId   대상 게시글 PK
+     * @param pageable 페이지 정보
+     * @return 관리자 댓글 목록 projection 페이지 (삭제 댓글 포함)
+     */
+    @Query(
+            value = "SELECT new com.paw.ddasoom.board.dto.projection.AdminCommentListProjection(" +
+                    "c.id, m.id, m.nickname, c.content, c.createdAt, c.updatedAt, c.deletedAt) " +
+                    "FROM PostComment c JOIN c.member m " +
+                    "WHERE c.post.id = :postId " +
+                    "ORDER BY c.createdAt ASC",
+            countQuery = "SELECT count(c) FROM PostComment c " +
+                    "WHERE c.post.id = :postId"
+    )
+    Page<AdminCommentListProjection> findCommentsForAdmin(@Param("postId") Long postId, Pageable pageable);
 
     /**
      * 마이페이지 "내가 쓴 댓글" 목록 — post 조인으로 원글 제목/보드타입 평면화(행 클릭 이동용).

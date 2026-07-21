@@ -2,6 +2,7 @@ package com.paw.ddasoom.board.repository;
 
 import com.paw.ddasoom.board.domain.BoardType;
 import com.paw.ddasoom.board.domain.Post;
+import com.paw.ddasoom.board.dto.projection.AdminPostListProjection;
 import com.paw.ddasoom.board.dto.projection.MyPostListProjection;
 import com.paw.ddasoom.board.dto.projection.PostListProjection;
 import java.util.Optional;
@@ -80,6 +81,38 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             Pageable pageable);
 
     /**
+     * [관리자] 게시글 목록 조회 — 전 보드 통합, 삭제된 글 포함.
+     *
+     * <p>사용자용 {@link #findPostList}와 다른 점:
+     * <ul>
+     *   <li>{@code p.deletedAt IS NULL} 조건이 없다 — 강제삭제/신고숨김된 글도 목록에 노출해
+     *       관리자가 상태를 확인할 수 있게 한다(AdminMember 목록의 탈퇴 회원 노출과 동일 철학).</li>
+     *   <li>{@code boardType}이 필수가 아닌 선택 필터 — 전 보드를 한 화면에서 관리한다.</li>
+     *   <li>contentPreview를 담지 않는다 — 관리자 목록은 제목 기준 모더레이션이라 불필요.</li>
+     * </ul>
+     *
+     * @param boardType 보드 타입 필터 (NULL이면 전 보드)
+     * @param keyword   제목 부분일치 검색어 (NULL이면 검색 없음)
+     * @param pageable  페이지 정보
+     * @return 관리자 게시글 목록 projection 페이지 (삭제 글 포함)
+     */
+    @Query("""
+    SELECT NEW com.paw.ddasoom.board.dto.projection.AdminPostListProjection(
+        p.id, p.boardType, p.category, p.title,
+        p.viewCount, p.commentCount, p.createdAt, p.deletedAt,
+        m.id, m.nickname)
+    FROM Post p
+    JOIN p.member m
+    WHERE (:boardType IS NULL OR p.boardType = :boardType)
+      AND (:keyword IS NULL OR p.title LIKE CONCAT('%', :keyword, '%'))
+    ORDER BY p.createdAt DESC
+    """)
+    Page<AdminPostListProjection> findPostsForAdmin(
+            @Param("boardType") BoardType boardType,
+            @Param("keyword") String keyword,
+            Pageable pageable);
+
+    /**
      * 게시글 상세 조회 — member fetch join.
      *
      * <p>단건 조회라 컬렉션 fetch join 페이징 이슈 없음. 삭제된 글은 조회되지 않는다.
@@ -94,4 +127,21 @@ public interface PostRepository extends JpaRepository<Post, Long> {
           AND p.deletedAt IS NULL
         """)
     Optional<Post> findDetailById(@Param("postId") Long postId);
+
+    /**
+     * [관리자] 게시글 단건 조회 — 삭제된 글 포함, member fetch join.
+     *
+     * <p>{@link #findDetailById}와 달리 {@code deletedAt IS NULL} 조건이 없다:
+     * 관리자는 이미 삭제된 글의 상세도 열람할 수 있어야 하고(강제삭제 확인·소명 판단),
+     * 강제삭제 처리 시 이미 삭제된 대상을 멱등(no-op)으로 처리하려면 삭제 글도 조회돼야 한다.
+     *
+     * @param postId 게시글 PK
+     * @return 게시글 (삭제 여부 무관, 작성자 fetch), 없으면 {@code Optional.empty()}
+     */
+    @Query("""
+        SELECT p FROM Post p
+        JOIN FETCH p.member
+        WHERE p.id = :postId
+        """)
+    Optional<Post> findByIdForAdmin(@Param("postId") Long postId);
 }
