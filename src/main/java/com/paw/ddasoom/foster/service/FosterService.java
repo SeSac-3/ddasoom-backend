@@ -56,21 +56,23 @@ public class FosterService {
         /** 유저 임시보호 신청 생성 */
         @Transactional
         public void create(Long memberId, FosterCreateRequest request) {
+        /*
+        * 같은 동물에 대한 신청 생성·관리자 승인을 직렬화한다.
+        * 첫 요청이 저장·커밋한 뒤 다음 요청이 중복 여부를 검사하게 된다.
+        */
+        Animal animal = animalRepository.findByIdForUpdate(request.getAnimalId())
+                .orElseThrow(() -> new AnimalException(AnimalErrorCode.ANIMAL_NOT_FOUND));
 
-                Animal animal = animalRepository.findById(request.getAnimalId())
-                                .orElseThrow(() -> new AnimalException(AnimalErrorCode.ANIMAL_NOT_FOUND));
-                
-                validateAnimalAvailableForFoster(animal);
+        validateAnimalAvailableForFoster(animal);
 
-                Member user = memberService.getMember(memberId);
-                
-                // 동일 유저 동일 동물 중복신청 검증
-                validateDuplicateApplication(memberId, request.getAnimalId());
+        Member user = memberService.getMember(memberId);
 
-                Foster foster = request.toEntity(animal, user);
-                
-                fosterRepository.save(foster);
+        // 동일 유저·동일 동물의 PENDING/FOSTERING/EXTENDED 중복 신청 검증
+        validateDuplicateApplication(memberId, request.getAnimalId());
 
+        Foster foster = request.toEntity(animal, user);
+
+        fosterRepository.save(foster);
         }
 
         /** 임시보호 상태(isFostered)인 동물 신청을 막는 검증 메서드  */

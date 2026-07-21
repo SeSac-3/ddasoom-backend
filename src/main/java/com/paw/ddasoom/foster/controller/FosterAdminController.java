@@ -6,6 +6,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -31,6 +32,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 
 @Tag(
@@ -38,6 +41,7 @@ import lombok.RequiredArgsConstructor;
     description = "관리자 임시보호 신청·진행 관리 API"
 )
 @SecurityRequirement(name = "bearerAuth")
+@Validated
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/admin/fosters")
@@ -136,10 +140,15 @@ public class FosterAdminController {
       @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
 
       @Parameter(description = "페이지 번호(0부터 시작)", example = "0")
-      @RequestParam(value = "page", defaultValue = "0") int page,
+      @RequestParam(value = "page", defaultValue = "0")
+      @Min(value = 0, message = "페이지 번호는 0 이상이어야 합니다.")
+      int page,
 
-      @Parameter(description = "페이지 크기", example = "20")
-      @RequestParam(value = "size", defaultValue = "20") int size
+      @Parameter(description = "페이지 크기(1~500)", example = "20")
+      @RequestParam(value = "size", defaultValue = "20")
+      @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
+      @Max(value = 500, message = "페이지 크기는 500 이하여야 합니다.")
+      int size
   ) {
     PageResponse<FosterAdminListResponse> response = fosterAdminService.getFosterList(
         scope,
@@ -169,12 +178,13 @@ public class FosterAdminController {
           description = "수정 성공"
       ),
       @io.swagger.v3.oas.annotations.responses.ApiResponse(
-          responseCode = "400",
-          description = """
-              이미 삭제된 신청(FOSTER_003), 허용되지 않은 상태 전이(FOSTER_007),
-              일정 오류(FOSTER_008), 전체 값 누락(FOSTER_013),
-              필수 일정 누락(FOSTER_014), 종료된 신청 일정 변경(FOSTER_017)
-              """
+            responseCode = "400",
+            description = """
+                이미 삭제된 신청(FOSTER_003), 허용되지 않은 상태 전이(FOSTER_007),
+                일정 오류(FOSTER_008), 전체 값 누락(FOSTER_013),
+                필수 일정 누락(FOSTER_014), 종료된 신청 일정 변경(FOSTER_017),
+                다른 활성 임시보호 신청 존재(FOSTER_018)
+                """
       ),
       @io.swagger.v3.oas.annotations.responses.ApiResponse(
           responseCode = "404",

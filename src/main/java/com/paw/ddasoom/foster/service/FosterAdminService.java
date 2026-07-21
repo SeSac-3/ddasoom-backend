@@ -9,6 +9,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.paw.ddasoom.animal.domain.Animal;
+import com.paw.ddasoom.animal.exception.AnimalErrorCode;
+import com.paw.ddasoom.animal.exception.AnimalException;
+import com.paw.ddasoom.animal.repository.AnimalRepository;
 import com.paw.ddasoom.common.dto.PageResponse;
 import com.paw.ddasoom.foster.domain.Foster;
 import com.paw.ddasoom.foster.domain.FosterManagementScope;
@@ -28,26 +32,45 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class FosterAdminService {
 
+  /**
+   * 임시보호 신청 관리 화면에서 조회하는 상태 목록이다.
+   * 임시보호신청관리(신청대기,신청거절)
+   */
   private static final List<FosterStatus> APPLICATION_STATUSES = List.of(
-    FosterStatus.PENDING,
-    FosterStatus.REJECTED
-);
+      FosterStatus.PENDING,
+      FosterStatus.REJECTED
+  );
 
+  /**
+   * 임시보호 진행 관리 화면에서 조회하는 상태 목록이다.
+   * 임시보호진행관리(임시보호중[임시보호중,임시보호연장],종료)
+   */
   private static final List<FosterStatus> PROGRESS_FOSTER_STATUSES = List.of(
       FosterStatus.FOSTERING,
       FosterStatus.EXTENDED,
       FosterStatus.ENDED
   );
 
+  /**
+   * 동물의 isFostered 값을 true로 만드는 활성 임시보호 상태 목록이다.
+   */
   private static final List<FosterStatus> ACTIVE_FOSTER_STATUSES = List.of(
       FosterStatus.FOSTERING,
       FosterStatus.EXTENDED
   );
 
   private final FosterRepository fosterRepository;
+  private final AnimalRepository animalRepository;
   private final MemberService memberService;
 
-  /** 관리자 임시보호 신청 상세 조회 */
+  /**
+   * 관리자 임시보호 신청 상세를 조회한다.
+   *
+   * <p>관리자는 삭제된 신청도 조회할 수 있다.</p>
+   *
+   * @param fosterId 임시보호 신청 PK
+   * @return 관리자용 상세 응답
+   */
   @Transactional(readOnly = true)
   public FosterAdminDetailResponse getFosterDetail(Long fosterId) {
     Foster foster = fosterRepository.findById(fosterId)
@@ -56,7 +79,18 @@ public class FosterAdminService {
     return FosterAdminDetailResponse.from(foster);
   }
 
-    /** 관리자 임시보호 신청 목록 조회 */
+  /**
+   * 관리자 임시보호 신청 목록을 조회한다.
+   *
+   * @param scope 신청 관리 또는 진행 관리 범위
+   * @param status 단일 상태 필터
+   * @param activeOnly 활성 임시보호 상태만 조회할지 여부
+   * @param includeDeleted 삭제된 신청 포함 여부
+   * @param startDate 신청일 조회 시작일
+   * @param endDate 신청일 조회 종료일
+   * @param pageable 페이지 정보
+   * @return 관리자용 목록 응답
+   */
   @Transactional(readOnly = true)
   public PageResponse<FosterAdminListResponse> getFosterList(
       FosterManagementScope scope,
@@ -86,7 +120,11 @@ public class FosterAdminService {
 
     return PageResponse.of(fosterList, FosterAdminListResponse::from);
   }
-    private List<FosterStatus> resolveSearchStatuses(
+
+  /**
+   * 관리 범위와 상태 필터 조합을 검증하고 실제 조회할 상태 목록을 결정한다.
+   */
+  private List<FosterStatus> resolveSearchStatuses(
       FosterManagementScope scope,
       FosterStatus status,
       boolean activeOnly
@@ -119,8 +157,13 @@ public class FosterAdminService {
   }
 
   /**
-   * 관리자 임시보호 신청 수정.
-   * PATCH 경로지만 전체 상태 전송 방식으로 동작한다.
+   * 관리자 임시보호 신청 처리 정보를 수정한다.
+   *
+   * <p>PATCH 경로지만 답변과 일정은 전체 상태 전송 방식으로 동작한다.</p>
+   *
+   * @param memberId 현재 로그인한 관리자 PK
+   * @param fosterId 수정할 임시보호 신청 PK
+   * @param request 관리자 수정 요청
    */
   @Transactional
   public void updateFoster(
@@ -135,6 +178,7 @@ public class FosterAdminService {
 
     validateFullReplacePayload(foster, request);
     validateFosterPeriod(foster, request);
+    validateNoOtherActiveFoster(foster, request.getStatus());
 
     foster.updateAdminReview(
         reviewer,
@@ -149,7 +193,9 @@ public class FosterAdminService {
     syncAnimalFosterStatus(foster);
   }
 
-  /** 관리자 삭제. 삭제 뒤 동물의 임시보호 상태를 재계산한다. */
+  /**
+   * 관리자 권한으로 임시보호 신청을 소프트 삭제하고 동물 보호 상태를 재계산한다.
+   */
   @Transactional
   public void deleteFoster(Long fosterId) {
     Foster foster = fosterRepository.findById(fosterId)
@@ -159,7 +205,45 @@ public class FosterAdminService {
 
     syncAnimalFosterStatus(foster);
   }
-  
+
+  /**
+   * 활성 상태 전환 전에 동물 행을 잠근 뒤 다른 활성 신청 존재 여부를 확인한다.
+   *
+   * <p>같은 동물에 대해 여러 관리자가 동시에 승인하더라도 한 신청만 활성 상태가 된다.</p>
+   *
+   * @param foster 현재 수정 중인 신청
+   * @param nextStatus 변경할 상태
+   */
+  private void validateNoOtherActiveFoster(
+      Foster foster,
+      FosterStatus nextStatus
+  ) {
+    boolean willBeActive =
+        nextStatus == FosterStatus.FOSTERING ||
+        nextStatus == FosterStatus.EXTENDED;
+
+    if (!willBeActive) {
+      return;
+    }
+
+    Animal animal = animalRepository.findByIdForUpdate(foster.getAnimal().getId())
+        .orElseThrow(() -> new AnimalException(AnimalErrorCode.ANIMAL_NOT_FOUND));
+
+    boolean hasOtherActiveFoster =
+        fosterRepository.existsByAnimal_IdAndIdNotAndStatusInAndDeletedAtIsNull(
+            animal.getId(),
+            foster.getId(),
+            ACTIVE_FOSTER_STATUSES
+        );
+
+    if (hasOtherActiveFoster) {
+      throw new FosterException(FosterErrorCode.DUPLICATE_ACTIVE_FOSTER);
+    }
+  }
+
+  /**
+   * 해당 동물의 삭제되지 않은 활성 신청 존재 여부로 isFostered를 동기화한다.
+   */
   private void syncAnimalFosterStatus(Foster foster) {
     boolean isFostered = fosterRepository.existsByAnimal_IdAndStatusInAndDeletedAtIsNull(
         foster.getAnimal().getId(),
@@ -170,8 +254,7 @@ public class FosterAdminService {
   }
 
   /**
-   * 기존 값이 있던 답변·일정을 요청에서 누락하면 거절한다.
-   * 관리자 수정은 전체 상태를 전송해야 한다.
+   * 기존에 값이 있던 답변·일정 필드를 요청에서 누락했는지 검증한다.
    */
   private void validateFullReplacePayload(
       Foster foster,
@@ -179,16 +262,12 @@ public class FosterAdminService {
   ) {
     boolean omittedExistingAnswer =
         foster.getAnswer() != null && request.getAnswer() == null;
-
     boolean omittedExistingStartAt =
         foster.getFosterStartAt() != null && request.getFosterStartAt() == null;
-
     boolean omittedExistingEndAt =
         foster.getFosterEndAt() != null && request.getFosterEndAt() == null;
-
     boolean omittedExistingExtendAt =
         foster.getFosterExtendAt() != null && request.getFosterExtendAt() == null;
-
     boolean omittedExistingCompleteAt =
         foster.getFosterCompleteAt() != null && request.getFosterCompleteAt() == null;
 
@@ -204,8 +283,9 @@ public class FosterAdminService {
   }
 
   /**
-   * 요청 값과 기존 값을 병합해서 일정의 논리적 순서를 검증한다.
-   * 실제 종료일은 중간 종료가 가능하므로 연장일과 비교하지 않는다.
+   * 요청 값과 기존 값을 병합해 임시보호 일정의 논리적 순서를 검증한다.
+   *
+   * <p>중간 종료는 가능하므로 완료일과 연장일은 비교하지 않는다.</p>
    */
   private void validateFosterPeriod(
       Foster foster,
@@ -235,35 +315,82 @@ public class FosterAdminService {
         fosterExtendAt,
         fosterCompleteAt
     );
+    
 
-    if (
-        fosterStartAt != null &&
-        fosterEndAt != null &&
-        fosterStartAt.isAfter(fosterEndAt)
-    ) {
+    validateScheduleCompatibilityByStatus(
+        request.getStatus(),
+        fosterStartAt,
+        fosterEndAt,
+        fosterExtendAt,
+        fosterCompleteAt
+    );
+
+    if (fosterStartAt != null && fosterEndAt != null && fosterStartAt.isAfter(fosterEndAt)) {
       throw new FosterException(FosterErrorCode.INVALID_FOSTER_PERIOD);
     }
 
     if (
-        fosterEndAt != null &&
-        fosterExtendAt != null &&
-        fosterEndAt.isAfter(fosterExtendAt)
+    fosterEndAt != null &&
+    fosterExtendAt != null &&
+    !fosterExtendAt.isAfter(fosterEndAt)
     ) {
       throw new FosterException(FosterErrorCode.INVALID_FOSTER_PERIOD);
     }
 
-    if (
-        fosterStartAt != null &&
-        fosterCompleteAt != null &&
-        fosterStartAt.isAfter(fosterCompleteAt)
-    ) {
-      throw new FosterException(FosterErrorCode.INVALID_FOSTER_PERIOD);
+  }
+  /**
+   * 상태와 맞지 않는 일정 필드가 함께 저장되는 것을 방지한다.
+   *
+   * <p>
+   * PENDING, REJECTED: 일정 전체 없음
+   * FOSTERING: 시작일, 기본 종료일만 허용
+   * EXTENDED: 시작일, 기본 종료일, 연장일 허용
+   * ENDED: 시작일, 기본 종료일, 최종 종료일 필수.
+   * 기존 연장 이력이 있으면 연장일도 유지할 수 있다.
+   * </p>
+   */
+  private void validateScheduleCompatibilityByStatus(
+      FosterStatus status,
+      LocalDateTime fosterStartAt,
+      LocalDateTime fosterEndAt,
+      LocalDateTime fosterExtendAt,
+      LocalDateTime fosterCompleteAt
+  ) {
+    boolean hasAnySchedule =
+        fosterStartAt != null ||
+        fosterEndAt != null ||
+        fosterExtendAt != null ||
+        fosterCompleteAt != null;
+
+    switch (status) {
+      case PENDING, REJECTED -> {
+        if (hasAnySchedule) {
+          throw new FosterException(FosterErrorCode.INVALID_FOSTER_PERIOD);
+        }
+      }
+
+      case FOSTERING -> {
+        if (fosterExtendAt != null || fosterCompleteAt != null) {
+          throw new FosterException(FosterErrorCode.INVALID_FOSTER_PERIOD);
+        }
+      }
+
+      case EXTENDED -> {
+        if (fosterCompleteAt != null) {
+          throw new FosterException(FosterErrorCode.INVALID_FOSTER_PERIOD);
+        }
+      }
+
+      case ENDED -> {
+        // 연장 후 조기 종료가 가능하므로 fosterCompleteAt과 fosterExtendAt 비교는 하지 않는다.
+      }
     }
   }
 
   /**
-   * 상태별 일정 필수값 검증.
-   * PENDING, REJECTED는 일정 없이 허용한다.
+   * 상태별 필수 일정 정보를 검증한다.
+   *
+   * <p>PENDING, REJECTED 상태는 일정 없이 허용한다.</p>
    */
   private void validateRequiredScheduleByStatus(
       FosterStatus status,
@@ -294,6 +421,9 @@ public class FosterAdminService {
     }
   }
 
+  /**
+   * 요청 값이 있으면 요청 값을, 없으면 기존 값을 사용한다.
+   */
   private LocalDateTime resolveValue(
       LocalDateTime requestValue,
       LocalDateTime currentValue

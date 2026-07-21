@@ -29,10 +29,13 @@ public class FosterAdminListResponse {
   private LocalDateTime fosterStartAt;
   private LocalDateTime fosterEndAt;
   private LocalDateTime fosterExtendAt;
+  private LocalDateTime fosterCompleteAt;
+
 
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
   private LocalDateTime deletedAt;
+
 
   public static FosterAdminListResponse from(Foster foster) {
     return FosterAdminListResponse.builder()
@@ -48,6 +51,7 @@ public class FosterAdminListResponse {
         .fosterStartAt(foster.getFosterStartAt())
         .fosterEndAt(foster.getFosterEndAt())
         .fosterExtendAt(foster.getFosterExtendAt())
+        .fosterCompleteAt(foster.getFosterCompleteAt())
         .createdAt(foster.getCreatedAt())
         .updatedAt(foster.getUpdatedAt())
         .deletedAt(foster.getDeletedAt())
