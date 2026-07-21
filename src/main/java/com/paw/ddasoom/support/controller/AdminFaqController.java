@@ -40,7 +40,7 @@ public class AdminFaqController {
 
   // 2. FAQ 상세 조회
   @GetMapping("/{faqId}")
-  public ResponseEntity<ApiResponse<FaqResponse>> getAdminFaq(@PathVariable Long faqId) {
+  public ResponseEntity<ApiResponse<FaqResponse>> getAdminFaq(@PathVariable("faqId") Long faqId) {
     return ResponseEntity.ok(ApiResponse.success(faqService.getAdminFaq(faqId)));
   }
 
@@ -56,7 +56,7 @@ public class AdminFaqController {
   // 4. FAQ 전체 수정
   @PutMapping("/{faqId}")
   public ResponseEntity<ApiResponse<FaqResponse>> updateFaq(
-      @PathVariable Long faqId,
+      @PathVariable("faqId") Long faqId,
       @Valid @RequestBody FaqUpdateRequest request) {
     return ResponseEntity.ok(ApiResponse.success(faqService.updateFaq(faqId, request)));
   }
@@ -64,15 +64,15 @@ public class AdminFaqController {
   // 5. FAQ 노출 여부 변경
   @PatchMapping("/{faqId}/visibility")
   public ResponseEntity<ApiResponse<Void>> changeVisibility(
-      @PathVariable Long faqId,
-      @RequestParam boolean isVisible) {
+      @PathVariable("faqId") Long faqId,
+      @RequestParam("isVisible") boolean isVisible) {
     faqService.changeVisibility(faqId, isVisible);
     return ResponseEntity.ok(ApiResponse.success("노출 여부가 변경되었습니다."));
   }
 
   // 6. FAQ 삭제
   @DeleteMapping("/{faqId}")
-  public ResponseEntity<ApiResponse<Void>> deleteFaq(@PathVariable Long faqId) {
+  public ResponseEntity<ApiResponse<Void>> deleteFaq(@PathVariable("faqId") Long faqId) {
     faqService.deleteFaq(faqId);
     return ResponseEntity.ok(ApiResponse.success("FAQ가 삭제되었습니다."));
   }

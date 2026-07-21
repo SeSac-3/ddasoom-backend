@@ -32,7 +32,7 @@ public class NoticeController {
 
     // 2. 사용자용 공지사항 상세 조회 (비노출 공지는 서비스에서 404 처리)
     @GetMapping("/{noticeId}")
-    public ResponseEntity<ApiResponse<NoticeResponse>> getNotice(@PathVariable Long noticeId) {
+    public ResponseEntity<ApiResponse<NoticeResponse>> getNotice(@PathVariable("noticeId") Long noticeId) {
         return ResponseEntity.ok(ApiResponse.success(noticeService.getNotice(noticeId)));
     }
 }

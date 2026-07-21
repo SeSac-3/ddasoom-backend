@@ -59,7 +59,7 @@ public class QnaController {
   @GetMapping("/{qnaId}")
   public ResponseEntity<ApiResponse<QnaDetailResponse>> getMyQna(
       @AuthenticationPrincipal CustomUserDetails userDetails,
-      @PathVariable Long qnaId) {
+      @PathVariable("qnaId") Long qnaId) {
     return ResponseEntity.ok(
         ApiResponse.success(qnaService.getMyQna(userDetails.getMemberId(), qnaId)));
   }
@@ -68,7 +68,7 @@ public class QnaController {
   @PostMapping("/{qnaId}/comments")
   public ResponseEntity<ApiResponse<QnaDetailResponse>> addComment(
       @AuthenticationPrincipal CustomUserDetails userDetails,
-      @PathVariable Long qnaId,
+      @PathVariable("qnaId") Long qnaId,
       @Valid @RequestBody QnaCommentCreateRequest request) {
     QnaDetailResponse response =
         qnaService.addUserComment(userDetails.getMemberId(), qnaId, request);

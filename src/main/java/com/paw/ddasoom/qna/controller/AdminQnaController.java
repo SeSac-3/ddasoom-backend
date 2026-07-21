@@ -40,14 +40,14 @@ public class AdminQnaController {
     // 1. 전체 문의 목록 조회 (상태 필터 optional: PENDING / ANSWERED / 미지정=전체)
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<QnaSummaryResponse>>> getAdminQnas(
-            @RequestParam(required = false) QnaStatus status,
+            @RequestParam(name = "status", required = false) QnaStatus status,
             @PageableDefault(size = 10) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.success(qnaService.getAdminQnas(status, pageable)));
     }
 
     // 2. 문의 상세 조회
     @GetMapping("/{qnaId}")
-    public ResponseEntity<ApiResponse<QnaDetailResponse>> getAdminQna(@PathVariable Long qnaId) {
+    public ResponseEntity<ApiResponse<QnaDetailResponse>> getAdminQna(@PathVariable("qnaId") Long qnaId) {
         return ResponseEntity.ok(ApiResponse.success(qnaService.getAdminQna(qnaId)));
     }
 
@@ -55,7 +55,7 @@ public class AdminQnaController {
     @PostMapping("/{qnaId}/comments")
     public ResponseEntity<ApiResponse<QnaDetailResponse>> addComment(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable Long qnaId,
+            @PathVariable("qnaId") Long qnaId,
             @Valid @RequestBody QnaCommentCreateRequest request) {
         QnaDetailResponse response =
                 qnaService.addAdminComment(userDetails.getMemberId(), qnaId, request);

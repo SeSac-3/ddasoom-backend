@@ -24,7 +24,7 @@ public class PostCommentController {
     /** 댓글 생성용 */
     @PostMapping
     public ResponseEntity<ApiResponse<CommentResponse>> createComment(
-            @PathVariable Long postId,
+            @PathVariable(name = "postId") Long postId,
             @Valid @RequestBody CommentCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
@@ -36,9 +36,9 @@ public class PostCommentController {
     /** 댓글 조회용 - 20개 기준 */
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<CommentResponse>>> getComments(
-            @PathVariable Long postId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @PathVariable(name = "postId") Long postId,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size) {
 
         PageResponse<CommentResponse> response = postCommentService.getComments(postId, page, size);
         return ResponseEntity.ok(ApiResponse.success(response));
@@ -47,8 +47,8 @@ public class PostCommentController {
     /** 댓글 수정용 */
     @PatchMapping("/{commentId}")
     public ResponseEntity<ApiResponse<CommentResponse>> updateComment(
-            @PathVariable Long postId,
-            @PathVariable Long commentId,
+            @PathVariable(name = "postId") Long postId,
+            @PathVariable(name = "commentId") Long commentId,
             @Valid @RequestBody CommentUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
@@ -59,8 +59,8 @@ public class PostCommentController {
     /** 댓글 삭제용 */
     @DeleteMapping("/{commentId}")
     public ResponseEntity<ApiResponse<Void>> deleteComment(
-            @PathVariable Long postId,
-            @PathVariable Long commentId,
+            @PathVariable(name = "postId") Long postId,
+            @PathVariable(name = "commnetId") Long commentId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         postCommentService.delete(postId, commentId, userDetails.getMemberId());

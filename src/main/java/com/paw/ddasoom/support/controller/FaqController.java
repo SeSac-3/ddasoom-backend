@@ -41,7 +41,7 @@ public class FaqController {
 
   // 2. 사용자용 FAQ 상세 조회
   @GetMapping("/{faqId}")
-  public ResponseEntity<ApiResponse<FaqResponse>> getFaq(@PathVariable Long faqId) {
+  public ResponseEntity<ApiResponse<FaqResponse>> getFaq(@PathVariable("faqId") Long faqId) {
     return ResponseEntity.ok(ApiResponse.success(faqService.getFaq(faqId)));
   }
 

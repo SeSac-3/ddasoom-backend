@@ -38,8 +38,8 @@ public class AdminReportController {
   // 1. 신고 목록 조회 (status/targetType 필터 optional, 기본 최신순)
   @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<ReportSummaryResponse>>> getReports(
-        @RequestParam(required = false) ReportStatus status,
-        @RequestParam(required = false) ReportTargetType targetType,
+        @RequestParam(value = "status", required = false) ReportStatus status,
+        @RequestParam(value = "targetType", required = false) ReportTargetType targetType,
         @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
       return ResponseEntity.ok(ApiResponse.success("신고 목록 조회 성공",
           reportService.getReports(status, targetType, pageable)));
@@ -47,7 +47,7 @@ public class AdminReportController {
 
     // 2. 신고 상세 조회
     @GetMapping("/{reportId}")
-    public ResponseEntity<ApiResponse<ReportDetailResponse>> getReport(@PathVariable Long reportId) {
+    public ResponseEntity<ApiResponse<ReportDetailResponse>> getReport(@PathVariable("reportId") Long reportId) {
       return ResponseEntity.ok(ApiResponse.success("신고 상세 조회 성공",
           reportService.getReport(reportId)));
     }
@@ -57,7 +57,7 @@ public class AdminReportController {
     @PatchMapping("/{reportId}/approve")
     public ResponseEntity<ApiResponse<Void>> approveReport(
         @AuthenticationPrincipal CustomUserDetails userDetails,
-        @PathVariable Long reportId) {
+        @PathVariable("reportId") Long reportId) {
       reportService.approveReport(userDetails.getMemberId(), reportId);
       return ResponseEntity.ok(ApiResponse.success("신고가 승인 처리되었습니다."));
     }
@@ -66,7 +66,7 @@ public class AdminReportController {
     @PatchMapping("/{reportId}/reject")
     public ResponseEntity<ApiResponse<Void>> rejectReport(
         @AuthenticationPrincipal CustomUserDetails userDetails,
-        @PathVariable Long reportId) {
+        @PathVariable("reportId") Long reportId) {
       reportService.rejectReport(userDetails.getMemberId(), reportId);
       return ResponseEntity.ok(ApiResponse.success("신고가 반려 처리되었습니다."));
     }
