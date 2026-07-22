@@ -98,7 +98,7 @@ public class PostService {
         Post post = request.toEntity(member, boardType, safeContent);
         postRepository.save(post);
 
-        imageService.attach(request.getImageIds(), OwnerType.POST, post.getId());
+        imageService.attach(request.getImageIds(), OwnerType.POST, post.getId(), memberId);
         if (request.getThumbnailImageId() != null) {
             imageService.setThumbnail(request.getThumbnailImageId(), OwnerType.POST, post.getId());
         }
@@ -234,7 +234,7 @@ public class PostService {
                 request.getTitle(), HtmlSanitizer.sanitize(request.getContent()));
 
         // 수정은 diff 동기화 — 빠진 이미지 soft delete + 순서 갱신 (IMAGE_FLOW 3-6)
-        imageService.syncImages(request.getImageIds(), OwnerType.POST, postId);
+        imageService.syncImages(request.getImageIds(), OwnerType.POST, postId, memberId);
         if (request.getThumbnailImageId() != null) {
             imageService.setThumbnail(request.getThumbnailImageId(), OwnerType.POST, postId);
         }
@@ -256,7 +256,7 @@ public class PostService {
 
         post.softDelete();
         // 소유자 삭제 시 이미지 일괄 정리 = 빈 리스트 sync (IMAGE_FLOW 3-6 패턴)
-        imageService.syncImages(List.of(), OwnerType.POST, postId);
+        imageService.syncImages(List.of(), OwnerType.POST, postId, memberId);
     }
 
     // ===== private =====

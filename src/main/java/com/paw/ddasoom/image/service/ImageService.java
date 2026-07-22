@@ -67,19 +67,24 @@ public class ImageService {
      * <p>순서 고정: 검증 → MinIO → DB INSERT — MinIO 실패 시 DB에 흔적을 남기지 않기 위함.
      * (반대 순서면 "DB에 있는데 파일이 없는" 조회 깨짐 상태 가능 — IMAGE_FLOW 부록 1)
      *
-     * @param file      업로드할 이미지 파일 (jpeg/png/gif/webp, 10MB 이하)
-     * @param ownerType 소유자 도메인 타입 — 버킷/URL 방식 분기의 기준
+     * <p>업로더(uploaderId)를 함께 기록한다 — owner_id가 NULL인 동안 이 이미지를 확정 연결할 수 있는
+     * 유일한 사람을 못박기 위함. 검증은 {@link #attach} 시점에 이루어진다.
+     *
+     * @param file       업로드할 이미지 파일 (jpeg/png/gif/webp, 10MB 이하)
+     * @param ownerType  소유자 도메인 타입 — 버킷/URL 방식 분기의 기준
+     * @param uploaderId 업로드한 회원 PK (토큰에서 추출한 값)
      * @return 저장된 이미지의 imageId·URL·썸네일 여부를 담은 응답
      * @throws ImageException IMAGE_001 — 허용 외 형식 / IMAGE_002 — 10MB 초과 / IMAGE_005 — MinIO 실패
      */
     @Transactional
-    public ImageResponse upload(MultipartFile file, OwnerType ownerType) {
+    public ImageResponse upload(MultipartFile file, OwnerType ownerType, Long uploaderId) {
         validateFile(file);
 
         String objectKey = minioUtil.upload(file, ownerType);
 
         Image image = Image.builder()
                 .ownerType(ownerType)
+                .memberId(uploaderId)
                 .imageKey(objectKey)
                 .originalFileName(file.getOriginalFilename())
                 .fileSize(file.getSize())
@@ -122,15 +127,19 @@ public class ImageService {
      * 순서 변경은 재정렬된 리스트로 {@link #syncImages}를 재호출하면 된다 (별도 재정렬 API 없음, IMAGE_FLOW 3-6).
      * 이미지 없는 게시글이 정상 경로이므로, null/빈 리스트는 예외가 아니라 조기 종료로 처리한다.
      *
-     * @param imageIds  연결할 이미지 ID 목록 (순서 = image_order). null/빈 리스트 허용
-     * @param ownerType 소유자 도메인 타입
-     * @param ownerId   확정된 소유자 식별자
+     * <p>⚠️ {@code requesterId}는 <b>토큰에서 추출한 값만</b> 넘긴다. 요청 body의 회원 ID를 넘기면
+     * 업로더 검증이 무력화된다 (SECURITY-FLOW 4장 사용 규칙 4).
+     *
+     * @param imageIds    연결할 이미지 ID 목록 (순서 = image_order). null/빈 리스트 허용
+     * @param ownerType   소유자 도메인 타입
+     * @param ownerId     확정된 소유자 식별자 (postId·qnaId 등 — 회원 PK가 아님)
+     * @param requesterId 지금 요청한 회원 PK — 임시 이미지의 업로더 대조용
      * @throws ImageException IMAGE_004 — 없거나 삭제된 imageId 포함
-     * @throws ImageException IMAGE_006 — 다른 소유자에 연결된 imageId 포함
+     * @throws ImageException IMAGE_006 — 다른 소유자에 연결된 imageId / 업로더가 아닌 사람의 확정 연결
      * @throws ImageException IMAGE_003 — 연결 후 활성 이미지 20장 초과 (전체 롤백)
      */
     @Transactional
-    public void attach(List<Long> imageIds, OwnerType ownerType, Long ownerId) {
+    public void attach(List<Long> imageIds, OwnerType ownerType, Long ownerId, Long requesterId) {
         // 이미지 없는 게시글이 정상 경로 — 예외가 아니라 조기 종료
         if (imageIds == null || imageIds.isEmpty()) {
             return;
@@ -147,7 +156,7 @@ public class ImageService {
 
         for (int i = 0; i < imageIds.size(); i++) {
             Image image = imageMap.get(imageIds.get(i));
-            image.attachTo(ownerType, ownerId);   // 삭제/소유자 검증은 엔티티가 (IMAGE_004/006)
+            image.attachTo(ownerType, ownerId, requesterId);   // 삭제/소유자/업로더 검증은 엔티티가 (IMAGE_004/006)
             image.updateOrder(i);
         }
 
@@ -169,13 +178,17 @@ public class ImageService {
      * 백엔드가 다른 이미지를 자동 승격하지 않는다 — 대표 이미지는 사용자 명시적 지정 원칙 (IMAGE_FLOW 3-6).
      * 프론트가 재지정을 유도해야 한다.
      *
-     * @param imageIds  동기화 후 남길 이미지 ID 목록 (순서 = image_order). null/빈 리스트 = 전부 삭제
-     * @param ownerType 소유자 도메인 타입
-     * @param ownerId   소유자 식별자
+     * <p>기존에 이미 연결된 이미지는 업로더 검증을 타지 않는다 (엔티티 {@code attachTo} 참고) —
+     * 관리자가 남의 글을 수정·삭제하는 정당한 경로가 막히지 않는 이유.
+     *
+     * @param imageIds    동기화 후 남길 이미지 ID 목록 (순서 = image_order). null/빈 리스트 = 전부 삭제
+     * @param ownerType   소유자 도메인 타입
+     * @param ownerId     소유자 식별자
+     * @param requesterId 지금 요청한 회원 PK — 새로 추가되는 임시 이미지의 업로더 대조용
      * @throws ImageException {@link #attach}와 동일 (IMAGE_003 / 004 / 006)
      */
     @Transactional
-    public void syncImages(List<Long> imageIds, OwnerType ownerType, Long ownerId) {
+    public void syncImages(List<Long> imageIds, OwnerType ownerType, Long ownerId, Long requesterId) {
         // null = 전부 삭제 요청과 동일 — 빈 리스트로 치환하면 아래 로직이 자연스럽게 전부 삭제로 동작
         List<Long> requestedIds = imageIds != null ? imageIds : List.of();
 
@@ -191,7 +204,7 @@ public class ImageService {
 
         // 이미 연결된 이미지가 섞여 있어도 안전 — attachTo()의 "같은 소유자 재연결 no-op" 덕분.
         // 재연결 시에도 updateOrder는 수행되므로, 재정렬된 리스트를 보내면 순서 변경이 이 호출만으로 처리됨
-        attach(requestedIds, ownerType, ownerId);
+        attach(requestedIds, ownerType, ownerId, requesterId);
     }
 
     /**
