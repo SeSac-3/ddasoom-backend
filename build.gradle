@@ -49,6 +49,9 @@ dependencies {
 	// Swagger / OpenAPI 3 (springdoc) — API 문서 자동화. Spring Boot 3.5(Jakarta) 호환 버전
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9'
 
+	// String Util
+	implementation 'org.apache.commons:commons-lang3:3.17.0'
+
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	runtimeOnly 'com.mysql:mysql-connector-j'

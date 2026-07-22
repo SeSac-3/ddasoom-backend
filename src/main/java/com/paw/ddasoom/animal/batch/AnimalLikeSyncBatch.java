@@ -67,13 +67,19 @@ public class AnimalLikeSyncBatch {
     doFlush(toInsert, toDelete, affectedAnimalIds);
   }
 
+  /**
+   * 최종 클릭된 토글 값을 DB의 좋아요 수에 취합함 (Write)
+   * @param toInsert
+   * @param toDelete
+   * @param affectedAnimalIds
+   */
   private void doFlush(
     List<AnimalLikeSyncItem> toInsert,
     List<AnimalLikeSyncItem> toDelete,
     Set<Long> affectedAnimalIds) {
       
-      if (toInsert.isEmpty() == false) jdbcRepository.bulkInsertIgnore(toInsert);
-      if (toDelete.isEmpty() == false) jdbcRepository.bulkDelete(toDelete);
+      if (!toInsert.isEmpty()) jdbcRepository.bulkInsertIgnore(toInsert);
+      if (!toDelete.isEmpty()) jdbcRepository.bulkDelete(toDelete);
 
       // 좋아요 누른 동물의 좋아요 수를 animal 테이블에 저장
       jdbcRepository.updateLikedAnimalCounts(affectedAnimalIds);
