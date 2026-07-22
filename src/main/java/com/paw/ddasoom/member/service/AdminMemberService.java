@@ -127,26 +127,29 @@ public class AdminMemberService {
   }
 
     /**
-     * 신고 승인 시 회원 숨김(HIDDEN) 처리 — 신고 도메인(ReportService.approveReport)이 호출하는 진입점.
-     * 관리자 수동 changeStatus와 같은 도메인 경로(Member.changeStatus)를 재사용해 "회원 상태의 진실"을
-     * member 도메인 한 곳에만 둔다.
+     * 신고 승인 시 피신고자 강제탈퇴 처리 — 신고 도메인(ReportService.hideTarget)이 호출하는 진입점.
      *
-     * <p>여기서 getMember(활성 조회)를 안 쓰고 findById로 직접 조회하는 이유: 신고 승인은 배치성 호출이라
-     * 이미 탈퇴/숨김인 대상에 대해 예외를 던지기보다 <b>조용히 no-op</b>으로 넘어가는 게 맞다
-     * (같은 신고를 두 번 승인해도 안전하도록 — 멱등성).
+     * <p>공개 API용 forceWithdraw를 직접 쓰지 않는 이유는 멱등성이다. forceWithdraw는 getMember(활성 조회)를
+     * 타므로 이미 탈퇴한 회원이면 MEMBER_003을 던지고, 그러면 신고 승인 트랜잭션 전체가 롤백된다.
+     * 한 회원이 여러 건 신고당해 순차 승인되는 것은 정상 시나리오라 예외로 막으면 안 된다.
+     *
+     * <p>ADMIN도 예외가 아니라 no-op으로 넘기는 이유: 예외를 던지면 승인이 롤백되어 콘텐츠 삭제까지 취소된다.
+     * 관리자 계정 보호와 콘텐츠 제재는 별개 관심사다.
+     *
+     * <p>status도 HIDDEN으로 함께 바꾸는 이유: deletedAt과 status가 따로 노는 상태를 만들지 않기 위함.
+     * withdraw()가 soft delete + RT 삭제 + forceLogout 마커까지 한 세트로 처리한다.
      */
     @Transactional
-    public void hideMember(Long targetMemberId) { 
+    public void withdrawByReport(Long targetMemberId) {
         Member target = memberRepository.findById(targetMemberId)
                 .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
-        if (target.isDeleted() || target.getStatus() == MemberStatus.HIDDEN) { // 이미 탈퇴/숨김이면 no-op
-            return;
+
+        if (target.isDeleted() || target.getRole() == Role.ADMIN) {
+            return;   // 멱등 no-op
         }
-        if (target.getRole() == Role.ADMIN) { // 관리자 계정은 제재 대상 불가
-            throw new MemberException(MemberErrorCode.CANNOT_CHANGE_ADMIN_STATUS);
-        }
+
         target.changeStatus(MemberStatus.HIDDEN);
-        blockSessions(targetMemberId);   // 신고 승인 제재도 관리자 수동 제재와 동일 강도로 세션 차단
+        memberService.withdraw(targetMemberId);
     }
 
     /**

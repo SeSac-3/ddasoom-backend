@@ -28,16 +28,12 @@ import lombok.NoArgsConstructor;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-/*
- * [DB 제약으로 지키는 두 가지]
- * - uk_report_reporter_target: 같은 사람이 같은 대상을 두 번 신고하는 것을 막는 최후 방어선
- *   (서비스의 exists 선검증은 친절한 409를 주기 위한 것이고, 동시 요청 경합은 이 UNIQUE가 막음)
- * - idx_report_status_created: 관리자 큐의 주력 조회(status 필터 + 최신순)를 filter → sort 순서로 커버
- */
+
 @Table(name = "report", uniqueConstraints = @UniqueConstraint(name = "uk_report_reporter_target", columnNames = {
     "reporter_id", "target_type", "target_id" }), indexes = {
         @Index(name = "idx_report_target", columnList = "target_type, target_id"),
-        @Index(name = "idx_report_status_created", columnList = "status, deleted_at, created_at")
+        @Index(name = "idx_report_status_created", columnList = "status, deleted_at, created_at"),
+        @Index(name = "idx_report_reported_member", columnList = "reported_member_id, deleted_at, created_at")
     })
 public class Report extends BaseTimeEntity {
 
@@ -46,21 +42,10 @@ public class Report extends BaseTimeEntity {
   @Column(name = "report_id")
   private Long reportId;
 
-  /*
-   * [성능 최적화 (지연 로딩)]
-   * 신고 목록/상세 조회 시 신고자(Member)를 항상 끌고 오지 않고,
-   * 실제 신고자 데이터가 필요한 시점에만 조회 (필요한 조회는 @EntityGraph로 명시적 fetch)
-   */
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "reporter_id", nullable = false)
   private Member reporter; // 신고자
 
-  /*
-   * [논리 참조 (targetType, targetId) — FK 없음]
-   * 대안이었던 '타입별 신고 테이블 3개' 또는 'nullable FK 3개' 대비,
-   * 신고를 단일 큐·단일 인덱스로 다룰 수 있어 관리자 화면과 조회 경로가 단순해짐
-   * 대신 참조 무결성은 DB가 아닌 앱 검증 + UI 진입 경로로 커버
-   */
   @Enumerated(EnumType.STRING)
   @Column(name = "target_type", nullable = false, length = 20)
   private ReportTargetType targetType;
@@ -75,11 +60,6 @@ public class Report extends BaseTimeEntity {
   @Column(name = "content", columnDefinition = "TEXT")
   private String content; // 상세 사유 — reason이 ETC일 때만 필수 (ReportReason.contentRequired)
 
-  /*
-   * [단일 진실 공급원(SSOT) 규칙 적용]
-   * 신고의 기본 시작 상태(PENDING)를 필드 선언부에 명시
-   * 생성 방식과 무관하게 접수된 신고는 항상 '미처리'에서 출발
-   */
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false, length = 20)
   private ReportStatus status = ReportStatus.PENDING;
@@ -87,6 +67,20 @@ public class Report extends BaseTimeEntity {
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "processed_id")
   private Member processor; // 처리한 관리자 (미처리 시 null)
+
+
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "reported_member_id")
+  private Member reportedMember; // 피신고자 (대상 소유자). 스냅샷 실패 시 null
+
+  @Column(name = "target_parent_id")
+  private Long targetParentId; // 댓글 신고 시 원 게시글 PK — 프론트가 원문 URL을 조합하는 데 필요
+
+  @Column(name = "target_title", length = 255)
+  private String targetTitle;
+
+  @Column(name = "target_snippet", length = 500)
+  private String targetSnippet;
 
   @Column(name = "processed_at", columnDefinition = "DATETIME(6)")
   private LocalDateTime processedAt; // 판정 시각 (미처리 시 null)
@@ -104,12 +98,17 @@ public class Report extends BaseTimeEntity {
    * 생성 경로에서 status를 세팅하는 것 자체를 차단해 '승인된 상태로 접수'되는 일이 없도록 함
    */
   @Builder
-  private Report(Member reporter, ReportTargetType targetType, Long targetId, ReportReason reason, String content) {
+  private Report(Member reporter, ReportTargetType targetType, Long targetId, ReportReason reason, String content,
+                 Member reportedMember, Long targetParentId, String targetTitle, String targetSnippet) {
     this.reporter = reporter;
     this.targetType = targetType;
     this.targetId = targetId;
     this.reason = reason;
     this.content = content;
+    this.reportedMember = reportedMember;
+    this.targetParentId = targetParentId;
+    this.targetTitle = targetTitle;
+    this.targetSnippet = targetSnippet;
   }
 
   // =========================================================================
