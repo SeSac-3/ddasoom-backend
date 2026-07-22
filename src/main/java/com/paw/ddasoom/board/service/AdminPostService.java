@@ -3,7 +3,6 @@ package com.paw.ddasoom.board.service;
 import com.paw.ddasoom.board.domain.BoardType;
 import com.paw.ddasoom.board.domain.Post;
 import com.paw.ddasoom.board.domain.PostComment;
-import com.paw.ddasoom.board.dto.projection.AdminAllCommentListProjection;
 import com.paw.ddasoom.board.dto.projection.AdminCommentListProjection;
 import com.paw.ddasoom.board.dto.projection.AdminPostListProjection;
 import com.paw.ddasoom.board.dto.response.AdminAllCommentResponse;
@@ -42,13 +41,13 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>강제삭제도 물리 삭제가 아닌 {@code softDelete}다(DB 컨벤션 — 물리 DELETE 금지).</li>
  *   <li>강제삭제는 <b>멱등(idempotent)</b>이다 — 이미 삭제된 대상은 예외 없이 no-op으로 넘긴다.
  *       신고 승인(ReportService.hideTarget)이 같은 대상에 대해 여러 번 호출될 수 있고,
- *       작성자가 먼저 지운 글을 관리자가 다시 처리할 수 있기 때문. (AdminMemberService.hideMember의
+ *       작성자가 먼저 지운 글을 관리자가 다시 처리할 수 있기 때문. ( AdminMemberService.withdrawByReport의
  *       "이미 탈퇴면 no-op"과 동일 철학)</li>
  * </ul>
  *
  * <p>⚠️ {@link #forceDeletePost(Long)} / {@link #forceDeleteComment(Long)}는 신고 도메인이 재사용한다.
  * ReportService.hideTarget()의 POST / POST_COMMENT 분기가 이 두 메서드에 위임하도록 연결된다
- * (회원 제재를 adminMemberService.hideMember에 위임하는 것과 대칭).
+ * ( 회원 제재를 adminMemberService.withdrawByReport에 위임하는 것과 대칭).
  */
 @Service
 @RequiredArgsConstructor

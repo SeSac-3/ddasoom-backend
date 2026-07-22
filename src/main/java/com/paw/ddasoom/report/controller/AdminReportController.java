@@ -46,9 +46,12 @@ public class AdminReportController {
   // 1. 신고 목록 조회 (status/targetType 필터 optional, 기본 최신순)
   @Operation(summary = "신고 목록 조회(관리자)", description = """
           신고 큐를 페이징으로 조회합니다. status/targetType 필터는 선택(미지정 시 전체), 기본 최신순.
+          reportedMemberId를 지정하면 해당 회원이 받은 신고만 조회하며, 이때 status/targetType 필터는 무시됩니다(관리자 회원 상세 전용).
+          응답 항목에는 피신고자 닉네임·대상 제목 스냅샷이 포함됩니다(V14 이전 데이터는 null).
           - 인가: ADMIN""")
   @Parameter(name = "status", description = "신고 상태 필터(미지정 시 전체)", example = "PENDING")
   @Parameter(name = "targetType", description = "대상 유형 필터(POST/POST_COMMENT/MEMBER, 미지정 시 전체)", example = "POST")
+  @Parameter(name = "reportedMemberId", description = "피신고자 회원 PK. 지정 시 해당 회원이 받은 신고만 조회(다른 필터 무시)", example = "9")
   @ApiResponses({
           @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
           @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "ADMIN 권한 아님")
@@ -57,17 +60,20 @@ public class AdminReportController {
     public ResponseEntity<ApiResponse<PageResponse<ReportSummaryResponse>>> getReports(
         @RequestParam(value = "status", required = false) ReportStatus status,
         @RequestParam(value = "targetType", required = false) ReportTargetType targetType,
+        @RequestParam(value = "reportedMemberId", required = false) Long reportedMemberId,
         @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
       // @PageableDefault의 sort는 "기본값"일 뿐 클라이언트가 덮어쓸 수 있어 방어가 아니다 — 여기서 화이트리스트로 강제
       Pageable safePageable = PageableSanitizer.sanitize(pageable,
               Sort.by(Sort.Direction.DESC, "createdAt"), "createdAt", "processedAt");
       return ResponseEntity.ok(ApiResponse.success("신고 목록 조회 성공",
-          reportService.getReports(status, targetType, safePageable)));
+          reportService.getReports(status, targetType, reportedMemberId, safePageable)));
     }
 
     // 2. 신고 상세 조회
     @Operation(summary = "신고 상세 조회(관리자)", description = """
-            신고 단건과 대상 누적 신고 건수(제재 판단 근거)를 함께 조회합니다.
+            신고 단건을 조회합니다. 접수 시점 대상 스냅샷(피신고자·원 게시글 PK·제목·본문 발췌)과
+            누적 신고 건수 2종을 함께 반환합니다 — targetReportCount(대상 기준)·reportedMemberReportCount(피신고자 기준),
+            둘 다 반려(REJECTED) 제외 집계입니다.  V14 이전에 접수된 신고는 스냅샷·피신고자 필드가 모두 null입니다.
             - 인가: ADMIN""")
     @Parameter(name = "reportId", description = "신고 PK", required = true, example = "1")
     @ApiResponses({
@@ -81,14 +87,16 @@ public class AdminReportController {
           reportService.getReport(reportId)));
     }
 
-    // 3. 신고 승인 (→ 대상 숨김까지 수행)
+    // 3. 신고 승인 (→ 콘텐츠 제재 + 피신고자 강제탈퇴까지 수행)
     // 상태 일부만 바꾸는 부분 변경이므로 PUT이 아닌 PATCH
     @Operation(summary = "신고 승인", description = """
-            신고를 승인 처리하고 대상을 숨김까지 수행합니다. 숨김 경로는 멱등(중복 승인 시 no-op).
+            신고를 승인 처리하며, 콘텐츠 강제삭제 + 피신고자 강제탈퇴(soft delete + RT 삭제 + AT 무효화) + 상태 전이를 함께 수행합니다.
+            되돌릴 수 없습니다. 피신고자가 이미 탈퇴했거나 ADMIN이면 탈퇴는 건너뛰고 콘텐츠 제재만 수행합니다(멱등).
             - 인가: ADMIN""")
     @Parameter(name = "reportId", description = "신고 PK", required = true, example = "1")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "승인 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "이미 처리된 신고(REPORT_003)"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "ADMIN 권한 아님"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "신고 없음(REPORT_001)")
     })
