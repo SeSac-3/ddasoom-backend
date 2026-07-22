@@ -2,7 +2,6 @@ package com.paw.ddasoom.foster.controller;
 
 import java.time.LocalDate;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -19,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.paw.ddasoom.common.dto.ApiResponse;
 import com.paw.ddasoom.common.dto.PageResponse;
 import com.paw.ddasoom.common.security.CustomUserDetails;
+import com.paw.ddasoom.common.util.PageableSanitizer;
 import com.paw.ddasoom.foster.domain.FosterManagementScope;
 import com.paw.ddasoom.foster.domain.FosterStatus;
 import com.paw.ddasoom.foster.dto.request.FosterAdminUpdateRequest;
@@ -157,7 +157,7 @@ public class FosterAdminController {
         includeDeleted,
         startDate,
         endDate,
-        PageRequest.of(page, size)
+        PageableSanitizer.of(page, size)
     );
 
     return ResponseEntity.ok(ApiResponse.success(response));

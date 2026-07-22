@@ -2,7 +2,6 @@ package com.paw.ddasoom.animal.controller;
 
 import java.util.List;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -25,6 +24,7 @@ import com.paw.ddasoom.animal.service.AnimalQueryService;
 import com.paw.ddasoom.common.dto.ApiResponse;
 import com.paw.ddasoom.common.dto.PageResponse;
 import com.paw.ddasoom.common.security.CustomUserDetails;
+import com.paw.ddasoom.common.util.PageableSanitizer;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -87,7 +87,7 @@ public class AnimalController {
       .gender(gender)
       .build();
     return ResponseEntity.ok(ApiResponse.success(
-      animalQueryService.search(request, memberId, PageRequest.of(page, size))));
+      animalQueryService.search(request, memberId, PageableSanitizer.of(page, size))));
   }
 
   /**
@@ -124,6 +124,6 @@ public class AnimalController {
     @RequestParam(name = "size", defaultValue = "10") int size
   ) {
     return ResponseEntity.ok(ApiResponse.success(
-      animalQueryService.getMyLikedAnimals(userDetails.getMemberId(), PageRequest.of(page, size))));
+      animalQueryService.getMyLikedAnimals(userDetails.getMemberId(), PageableSanitizer.of(page, size))));
   }
 }
