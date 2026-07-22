@@ -46,16 +46,16 @@ public class QnaService {
 
     // 1-1) 요청 데이터 (status는 빌더 미노출 — 항상 PENDING으로 시작)
     Qna qna = Qna.builder()
-        .questioner(questioner)
-        .title(request.getTitle())
-        .content(request.getContent())
-        .build();
+            .questioner(questioner)
+            .title(request.getTitle())
+            .content(request.getContent())
+            .build();
 
     // 1-2) DB 저장 (이미지 연결에 필요한 qnaId 확보)
     Qna savedQna = qnaRepository.save(qna);
 
     // 1-3) 본문 이미지 확정 연결 (리스트 순서 = image_order)
-    imageService.attach(request.getImageIds(), OwnerType.QNA, savedQna.getId());
+    imageService.attach(request.getImageIds(), OwnerType.QNA, savedQna.getId(), memberId);
     return QnaSummaryResponse.from(savedQna);
   }
 
@@ -83,7 +83,7 @@ public class QnaService {
 
     // 4-2) 코멘트 적재 + 첨부 이미지 연결
     QnaComment comment = appendComment(qna, memberRepository.getReferenceById(memberId), request.getContent());
-    imageService.attach(request.getImageIds(), OwnerType.QNA_COMMENT, comment.getId());
+    imageService.attach(request.getImageIds(), OwnerType.QNA_COMMENT, comment.getId(), memberId);
 
     // 4-3) 재질문이므로 답변 대기 상태로 복귀 (answeredAt은 유지)
     qna.markPending();
@@ -100,8 +100,8 @@ public class QnaService {
   @Transactional(readOnly = true)
   public PageResponse<QnaSummaryResponse> getAdminQnas(QnaStatus status, Pageable pageable) {
     Page<Qna> qnaPage = (status == null)
-        ? qnaRepository.findByDeletedAtIsNullOrderByCreatedAtDesc(pageable)
-        : qnaRepository.findByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(status, pageable);
+            ? qnaRepository.findByDeletedAtIsNullOrderByCreatedAtDesc(pageable)
+            : qnaRepository.findByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(status, pageable);
     return PageResponse.of(qnaPage, QnaSummaryResponse::from);
   }
 
@@ -119,7 +119,7 @@ public class QnaService {
 
     // 3-2) 답변 코멘트 적재 + 첨부 이미지 연결
     QnaComment comment = appendComment(qna, memberRepository.getReferenceById(adminId), request.getContent());
-    imageService.attach(request.getImageIds(), OwnerType.QNA_COMMENT, comment.getId());
+    imageService.attach(request.getImageIds(), OwnerType.QNA_COMMENT, comment.getId(), adminId);
     qna.markAnswered();
     qnaRepository.flush();
     return buildDetail(qna);
@@ -130,7 +130,7 @@ public class QnaService {
   // 1) 문의 단건 조회 공통 내부 메서드 (논리삭제X 데이터만 조회)
   private Qna getQnaEntity(Long qnaId) {
     return qnaRepository.findByIdAndDeletedAtIsNull(qnaId)
-        .orElseThrow(() -> new QnaException(QnaErrorCode.QNA_NOT_FOUND));
+            .orElseThrow(() -> new QnaException(QnaErrorCode.QNA_NOT_FOUND));
   }
 
   // 2) 데이터 소유권 검증
@@ -143,10 +143,10 @@ public class QnaService {
   // 3) 코멘트 생성 공통 — 유저/관리자 경로가 같은 적재 로직을 공유
   private QnaComment appendComment(Qna qna, Member writer, String content) {
     QnaComment comment = QnaComment.builder()
-        .qna(qna)
-        .member(writer)
-        .content(content)
-        .build();
+            .qna(qna)
+            .member(writer)
+            .content(content)
+            .build();
     return qnaCommentRepository.save(comment);
   }
 
@@ -161,7 +161,7 @@ public class QnaService {
 
     // 4-3) commentIds를 IN 절로 한 번에 조회 후 Map<코멘트ID, 이미지목록>으로 그룹핑 (쿼리 1회)
     Map<Long, List<ImageResponse>> commentImagesByOwner = imageService.getImagesGroupedByOwners(OwnerType.QNA_COMMENT,
-        commentIds);
+            commentIds);
     return QnaDetailResponse.from(qna, comments, questionImages, commentImagesByOwner);
   }
 }
