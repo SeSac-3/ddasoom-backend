@@ -1,7 +1,9 @@
 package com.paw.ddasoom.animal.service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
@@ -38,22 +40,36 @@ public class AnimalSyncService {
     List<AnimalFetchResponse.AnimalItem> items = animalFetchService.fetchAnimals();
  
     List<AnimalSyncItem> validItems = new ArrayList<>(items.size());
+    Map<String, Integer> errorLists = new HashMap<>();
+
     for (AnimalFetchResponse.AnimalItem item : items) {
       try {
         validItems.add(toSyncItem(item));
       } catch (AnimalException e) {
         // 값 하나가 이상하다고 8000건이 넘는 전체 동기화를 실패시키지 않는다.
         // 원본 값을 그대로 로그로 남겨서 실제로 어떤 값이 문제인지 바로 확인 가능하게 한다.
-        log.warn(
-            "동물 동기화 실패 - abandonmentId: {}, kind: '{}', gender: '{}', 사유: {}",
-            item.abandonmentId(), item.kind(), item.gender(), e.getMessage()
-        );
+        if (!errorLists.containsKey(item.kind())) {
+          errorLists.put(item.kind(), 1);
+        } else {
+          Integer value = errorLists.get(item.kind());
+          errorLists.put(item.kind(), ++value);
+        }
+
+        if (!errorLists.containsKey(item.gender())) {
+          errorLists.put(item.gender(), 1);
+        } else {
+          Integer value = errorLists.get(item.gender());
+          errorLists.put(item.gender(), ++value);
+        }
       }
     }
  
     animalSyncJdbcRepository.bulkUpsert(validItems);
  
     log.info("동물 동기화 완료 - 유효 {}건 / 전체 {}건 upsert", validItems.size(), items.size());
+    for (String key : errorLists.keySet()) {
+      log.info("동기화 실패 동물사유\n{}: {}건", key, errorLists.get(key));
+    }
     return validItems.size();
   }
  
