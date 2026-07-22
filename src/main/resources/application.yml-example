@@ -1,7 +1,7 @@
 server:
   port: 8080
 
-# [CORS 설정] 
+# [CORS 설정]
 app:
   cors:
     allowed-origins: "http://localhost:5173"
@@ -10,120 +10,149 @@ spring:
   # [1. MySQL & JPA 설정]
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/ddasoom?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-    username: // mysql username
-    password: // mysql password
-    
+    url: jdbc:mysql://localhost:3306/ddasoom?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&rewriteBatchedStatements=true
+    username: ssuser # mysql username (팀 로컬 표준값 — 본인 환경이 다르면 여기만 수정)
+    password: 1234   # mysql password (팀 로컬 표준값)
+
     # [2. 히카리CP 설정] 실무 기준 안정적인 풀 구성
     hikari:
-      maximum-pool-size: 10       # 최대 커넥션 개수
-      minimum-idle: 5             # 최소 유지 커넥션 개수
-      idle-timeout: 300000        # 유휴 커넥션 폐기 시간 (5분)
-      connection-timeout: 20000   # 커넥션 획득 대기 최대 시간 (20초)
-      max-lifetime: 1800000       # 커넥션 최대 수명 (30분)
+      maximum-pool-size: 10 # 최대 커넥션 개수
+      minimum-idle: 5 # 최소 유지 커넥션 개수
+      idle-timeout: 300000 # 유휴 커넥션 폐기 시간 (5분)
+      connection-timeout: 20000 # 커넥션 획득 대기 최대 시간 (20초)
+      max-lifetime: 1800000 # 커넥션 최대 수명 (30분)
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration,classpath:db/seed   # 운영/시드 분리 (운영 배포 시 seed 제외 프로파일 분리 예정)
+    baseline-on-migrate: false
+    out-of-order: true
+    user: ssuser    # 보통은 datasource와 동일해서 생략 가능
+    password: 1234
 
   jpa:
     hibernate:
-      # Flyway 도입 전까지는 임시로 update를 사용하며, sql 스크립트가 완성되면 none으로 변경 후 Flyway를 켭니다.
-      ddl-auto: update 
-    show-sql: true                # 표준 출력을 통해 SQL 보기
+      # 스키마의 주인은 Flyway — Hibernate는 스키마를 건드리지 않음
+      ddl-auto: none
+    show-sql: true # 표준 출력을 통해 SQL 보기
     properties:
       hibernate:
-        format_sql: true          # SQL 예쁘게 출력
-        highlight_sql: true       # SQL 가독성 높게 색상 하이라이팅
+        format_sql: true # SQL 예쁘게 출력
+        highlight_sql: true # SQL 가독성 높게 색상 하이라이팅
 
   # [3. Redis 설정] 기본 정보만 명시
   data:
     redis:
       host: localhost
       port: 6379
-  
+      password: 1234
+
   # [4. Mail 설정]
   mail:
     host: smtp.gmail.com
-    port: 587                         # Gmail SMTP TLS 표준 포트
-    username: useremail@gmail.com # 본인의 구글 이메일 주소 전체
-    password: **** **** **** ****        # 구글에서 발급받은 16자리 앱 비밀번호 (공백 없이 입력)
+    port: 587 # Gmail SMTP TLS 표준 포트
+    username: ${DDASOOM_MAIL_USERNAME} # 팀장 이메일 — 환경변수 등록 (노션 시크릿 표 참고)
+    password: ${DDASOOM_MAIL_PASSWORD} # 구글 16자리 앱 비밀번호 (공백 없이) — 환경변수 등록
     properties:
       mail:
         smtp:
-          auth: true                  # SMTP 인증 사용 여부
+          auth: true # SMTP 인증 사용 여부
           starttls:
-            enable: true              # TLS 보안 연결 활성화 (필수)
-            required: true            # TLS 연결 강제화
-          connectiontimeout: 5000     # 연결 대기 시간 (5초)
-          timeout: 5000               # 응답 대기 시간 (5초)
-          writetimeout: 5000          # 쓰기 작업 대기 시간 (5초)
+            enable: true # TLS 보안 연결 활성화 (필수)
+            required: true # TLS 연결 강제화
+          connectiontimeout: 5000 # 연결 대기 시간 (5초)
+          timeout: 5000 # 응답 대기 시간 (5초)
+          writetimeout: 5000 # 쓰기 작업 대기 시간 (5초)
+
+  # [5. OAuth2 소셜 로그인]
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${DDASOOM_GOOGLE_CLIENT_ID}
+            client-secret: ${DDASOOM_GOOGLE_CLIENT_SECRET}
+            redirect-uri: "{baseUrl}/api/login/oauth2/code/{registrationId}"
+            scope:
+              - profile
+              - email
+
+          kakao:
+            client-id: ${DDASOOM_KAKAO_CLIENT_ID}
+            client-secret: ${DDASOOM_KAKAO_CLIENT_SECRET}
+            redirect-uri: "{baseUrl}/api/login/oauth2/code/{registrationId}"
+            authorization-grant-type: authorization_code
+            client-authentication-method: client_secret_post # 카카오는 secret을 POST body로 요구
+            client-name: Kakao
+            scope:
+              - profile_nickname
+              - account_email
+
+          naver:
+            client-id: ${DDASOOM_NAVER_CLIENT_ID}
+            client-secret: ${DDASOOM_NAVER_CLIENT_SECRET}
+            redirect-uri: "{baseUrl}/api/login/oauth2/code/{registrationId}"
+            authorization-grant-type: authorization_code
+            client-name: Naver
+            # scope 미지정 — 네이버는 콘솔의 "제공 정보 선택"(이메일·별명 필수)이 우선 적용됨
+
+        provider:
+          # 구글은 Spring Security 내장(CommonOAuth2Provider)이라 provider 블록 불필요
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+            user-info-uri: https://kapi.kakao.com/v2/user/me
+            user-name-attribute: id # 카카오 응답의 최상위 고유번호
+          naver:
+            authorization-uri: https://nid.naver.com/oauth2.0/authorize
+            token-uri: https://nid.naver.com/oauth2.0/token
+            user-info-uri: https://openapi.naver.com/v1/nid/me
+            user-name-attribute: response # 네이버는 response 객체로 래핑 — 파싱 시 한 겹 벗겨야 함
+
+  # [9. Image 크기 제한 설정]
+  # ⚠️ 반드시 spring 바로 하위 (spring.servlet.multipart) — security 하위에 두면 조용히 무시되어 기본 1MB로 돌아감
+  servlet:
+    multipart:
+      max-file-size: 11MB      # 10MB 아님 — 비즈니스 검증(IMAGE_002)이 먼저 걸리도록
+      max-request-size: 11MB
 
   # [7. SMTP & 3. Redis 방어용 자동 설정 제외]
   # Redis 서버가 없거나 Gmail 설정을 안 한 팀원들의 서버가 터지는 것을 막기 위해 기본적으로 자동 설정을 꺼둡니다.
   # 본인 로컬에 Redis를 깔았거나 메일 테스트를 하려면 아래 해당 라인을 주석 처리(#)하거나 지우면 활성화됩니다.
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
-      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+  # autoconfigure:
+  #   exclude:
+  #     - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+  #     - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
 
 # [6. 로그 레벨 설정]
 logging:
   level:
     root: info
-    com.paw.ddasoom: debug           
+    com.paw.ddasoom: debug
     org.hibernate.SQL: debug
     # SQL 파라미터 바인딩 및 결과 값(Descriptor)을 완벽하게 추적하기 위한 TRACE 설정
     org.hibernate.type.descriptor.sql: trace
     org.hibernate.orm.results.loading: trace
 
+# [7. Public API Key 설정]
+api:
+  base-url: https://apis.data.go.kr/1543061/abandonmentPublicService_v2
+  service-key: ${DDASOOM_PUBLIC_API_KEY} # 환경변수 등록 (기존 PUBLIC_API_KEY 등록자는 변수명 변경 필요 — 노션 표 참고)
 
-# [7. JWT 설정]
+# [8. MinIO 설정]
+minio:
+  endpoint: http://localhost:9000
+  access-key: minioadmin # 본인이 설정한 아이디 (기본값: minioadmin — 다르게 설정했으면 여기만 수정)
+  secret-key: minioadmin # 본인이 설정한 비밀번호 (기본값: minioadmin)
+  bucket:
+    public-name: ddasoom-public
+    private-name: ddasoom-private
+
+# [9. JWT 설정 및 secret]
 ddasoom:
-  service-url: http://localhost:5173   # 프론트 주소 — 소셜 콜백 리다이렉트 + 메일 버튼 링크
   jwt:
-    secret: # Base64 인코딩된 256bit 이상 키 (openssl rand -base64 64 로 생성)
-    access-token-validity: 1800000     # AT 30분 (ms) — SECURITY-FLOW.md 기준
+    secret: "${DDASOOM_JWT_SECRET}" # HS512 base64 키 — 환경변수 등록
+    access-token-validity: 1800000 # AT 30분 (ms) — SECURITY-FLOW.md 기준
     refresh-token-validity: 1209600000 # RT 14일 (ms)
-  cookie-secure: false                 # 운영 배포 시 true (HTTPS 전용)
-
-# [5. OAuth2 소셜 로그인]
-security:
-  oauth2:
-    client:
-      registration:
-        google:
-          client-id: # 구글 Client ID
-          client-secret: # 구글 Client Secret 
-          redirect-uri: "{baseUrl}/api/login/oauth2/code/{registrationId}"
-          scope:
-            - profile
-            - email
-
-        kakao:
-          client-id: # 카카오 Client ID
-          client-secret: # 카카오 Client Secret 
-          redirect-uri: "{baseUrl}/api/login/oauth2/code/{registrationId}"
-          authorization-grant-type: authorization_code
-          client-authentication-method: client_secret_post   # 카카오는 secret을 POST body로 요구
-          client-name: Kakao
-          scope:
-            - profile_nickname
-            - account_email
-
-        naver:
-          client-id: # 네이버 Client ID
-          client-secret: # 네이버 Client Secret
-          redirect-uri: "{baseUrl}/api/login/oauth2/code/{registrationId}"
-          authorization-grant-type: authorization_code
-          client-name: Naver
-          # scope 미지정 — 네이버는 콘솔의 "제공 정보 선택"(이메일·별명 필수)이 우선 적용됨
-
-      provider:
-        # 구글은 Spring Security 내장(CommonOAuth2Provider)이라 provider 블록 불필요
-        kakao:
-          authorization-uri: https://kauth.kakao.com/oauth/authorize
-          token-uri: https://kauth.kakao.com/oauth/token
-          user-info-uri: https://kapi.kakao.com/v2/user/me
-          user-name-attribute: id            # 카카오 응답의 최상위 고유번호
-        naver:
-          authorization-uri: https://nid.naver.com/oauth2.0/authorize
-          token-uri: https://nid.naver.com/oauth2.0/token
-          user-info-uri: https://openapi.naver.com/v1/nid/me
-          user-name-attribute: response      # 네이버는 response 객체로 래핑 — 파싱 시 한 겹 벗겨야 함
+  cookie-secure: false # 운영 배포 시 true (HTTPS 전용)
+  service-url: http://localhost:5173 # 프론트 주소 — 소셜 콜백 리다이렉트 + 메일 버튼 링크
