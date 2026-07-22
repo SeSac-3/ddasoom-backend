@@ -24,6 +24,11 @@ import com.paw.ddasoom.qna.dto.response.QnaDetailResponse;
 import com.paw.ddasoom.qna.dto.response.QnaSummaryResponse;
 import com.paw.ddasoom.qna.service.QnaService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -35,11 +40,21 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/admin/qnas")
 @RequiredArgsConstructor
+@Tag(name = "관리자 문의(Admin QnA)", description = "관리자 — 전체 문의 목록·상세·답변(코멘트) API")
+@SecurityRequirement(name = "bearerAuth")   // /api/admin 하위 = ADMIN 전용
 public class AdminQnaController {
 
     private final QnaService qnaService;
 
     // 1. 전체 문의 목록 조회 (상태 필터 optional: PENDING / ANSWERED / 미지정=전체)
+    @Operation(summary = "전체 문의 목록 조회(관리자)", description = """
+            전체 문의를 페이징으로 조회합니다. status 필터는 선택(미지정 시 전체).
+            - 인가: ADMIN""")
+    @Parameter(name = "status", description = "상태 필터(PENDING/ANSWERED, 미지정 시 전체)", example = "PENDING")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "ADMIN 권한 아님")
+    })
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<QnaSummaryResponse>>> getAdminQnas(
             @RequestParam(name = "status", required = false) QnaStatus status,
@@ -50,12 +65,31 @@ public class AdminQnaController {
     }
 
     // 2. 문의 상세 조회
+    @Operation(summary = "문의 상세 조회(관리자)", description = """
+            문의 단건을 코멘트 스레드와 함께 조회합니다. 소유권 검증 없음(URL 레벨 권한 확인).
+            - 인가: ADMIN""")
+    @Parameter(name = "qnaId", description = "문의 PK", required = true, example = "1")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "ADMIN 권한 아님"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "문의 없음(QNA_001)")
+    })
     @GetMapping("/{qnaId}")
     public ResponseEntity<ApiResponse<QnaDetailResponse>> getAdminQna(@PathVariable("qnaId") Long qnaId) {
         return ResponseEntity.ok(ApiResponse.success(qnaService.getAdminQna(qnaId)));
     }
 
     // 3. 답변 코멘트 추가 (→ 상태 ANSWERED)
+    @Operation(summary = "답변 코멘트 추가(관리자)", description = """
+            관리자 답변 코멘트를 추가합니다. 추가 시 문의 상태가 ANSWERED로 전이됩니다.
+            - 인가: ADMIN""")
+    @Parameter(name = "qnaId", description = "문의 PK", required = true, example = "1")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "등록 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "요청 값 유효성 오류"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "ADMIN 권한 아님"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "문의 없음(QNA_001)")
+    })
     @PostMapping("/{qnaId}/comments")
     public ResponseEntity<ApiResponse<QnaDetailResponse>> addComment(
             @AuthenticationPrincipal CustomUserDetails userDetails,

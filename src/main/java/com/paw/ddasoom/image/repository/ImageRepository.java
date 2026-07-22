@@ -4,6 +4,7 @@ import com.paw.ddasoom.image.domain.Image;
 import com.paw.ddasoom.image.domain.OwnerType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param; 
 
 import java.util.List;
 import java.util.Optional;
@@ -43,7 +44,7 @@ public interface ImageRepository extends JpaRepository<Image, Long> {
         AND i.deletedAt IS NULL 
         ORDER BY i.imageOrder ASC 
         """)
-    List<Image> findActiveImages(OwnerType ownerType, Long ownerId);
+    List<Image> findActiveImages(@Param("ownerType") OwnerType ownerType, @Param("ownerId") Long ownerId);
 
     /**
      * 소유자의 활성 이미지 개수를 센다.
@@ -62,7 +63,7 @@ public interface ImageRepository extends JpaRepository<Image, Long> {
         AND i.ownerId = :ownerId
         AND i.deletedAt IS NULL
         """)
-    long countActiveImages(OwnerType ownerType, Long ownerId);
+    long countActiveImages(@Param("ownerType") OwnerType ownerType, @Param("ownerId") Long ownerId);
 
 
     /**
@@ -84,7 +85,7 @@ public interface ImageRepository extends JpaRepository<Image, Long> {
         AND i.isThumbnail IS TRUE 
         AND i.deletedAt IS NULL 
         """)
-    Optional<Image> findThumbnail(OwnerType ownerType, Long ownerId);
+    Optional<Image> findThumbnail(@Param("ownerType") OwnerType ownerType, @Param("ownerId") Long ownerId);
 
 
     /**
@@ -105,7 +106,7 @@ public interface ImageRepository extends JpaRepository<Image, Long> {
         AND i.isThumbnail = TRUE 
         AND i.deletedAt IS NULL 
     """)
-    List<Image> findThumbnails(OwnerType ownerType, List<Long> ownerIds);
+    List<Image> findThumbnails(@Param("ownerType") OwnerType ownerType, @Param("ownerIds") List<Long> ownerIds);
     /**
      * 여러 소유자의 전체 활성 이미지를 노출 순서대로 일괄 조회한다.
      * <p>
@@ -125,5 +126,5 @@ public interface ImageRepository extends JpaRepository<Image, Long> {
         AND i.deletedAt IS NULL
         ORDER BY i.imageOrder ASC 
     """)
-    List<Image> findActiveImagesByOwners(OwnerType ownerType, List<Long> ownerIds);
+    List<Image> findActiveImagesByOwners(@Param("ownerType") OwnerType ownerType, @Param("ownerIds") List<Long> ownerIds);
 }

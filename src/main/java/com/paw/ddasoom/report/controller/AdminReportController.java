@@ -22,6 +22,11 @@ import com.paw.ddasoom.report.dto.response.ReportDetailResponse;
 import com.paw.ddasoom.report.dto.response.ReportSummaryResponse;
 import com.paw.ddasoom.report.service.ReportService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 /*
@@ -32,11 +37,22 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/admin/reports")
 @RequiredArgsConstructor
+@Tag(name = "관리자 신고(Admin Report)", description = "관리자 — 신고 큐 목록·상세·승인·반려 API")
+@SecurityRequirement(name = "bearerAuth")   // /api/admin 하위 = ADMIN 전용
 public class AdminReportController {
 
   private final ReportService reportService;
 
   // 1. 신고 목록 조회 (status/targetType 필터 optional, 기본 최신순)
+  @Operation(summary = "신고 목록 조회(관리자)", description = """
+          신고 큐를 페이징으로 조회합니다. status/targetType 필터는 선택(미지정 시 전체), 기본 최신순.
+          - 인가: ADMIN""")
+  @Parameter(name = "status", description = "신고 상태 필터(미지정 시 전체)", example = "PENDING")
+  @Parameter(name = "targetType", description = "대상 유형 필터(POST/POST_COMMENT/MEMBER, 미지정 시 전체)", example = "POST")
+  @ApiResponses({
+          @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+          @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "ADMIN 권한 아님")
+  })
   @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<ReportSummaryResponse>>> getReports(
         @RequestParam(value = "status", required = false) ReportStatus status,
@@ -50,6 +66,15 @@ public class AdminReportController {
     }
 
     // 2. 신고 상세 조회
+    @Operation(summary = "신고 상세 조회(관리자)", description = """
+            신고 단건과 대상 누적 신고 건수(제재 판단 근거)를 함께 조회합니다.
+            - 인가: ADMIN""")
+    @Parameter(name = "reportId", description = "신고 PK", required = true, example = "1")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "ADMIN 권한 아님"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "신고 없음(REPORT_001)")
+    })
     @GetMapping("/{reportId}")
     public ResponseEntity<ApiResponse<ReportDetailResponse>> getReport(@PathVariable("reportId") Long reportId) {
       return ResponseEntity.ok(ApiResponse.success("신고 상세 조회 성공",
@@ -58,6 +83,15 @@ public class AdminReportController {
 
     // 3. 신고 승인 (→ 대상 숨김까지 수행)
     // 상태 일부만 바꾸는 부분 변경이므로 PUT이 아닌 PATCH
+    @Operation(summary = "신고 승인", description = """
+            신고를 승인 처리하고 대상을 숨김까지 수행합니다. 숨김 경로는 멱등(중복 승인 시 no-op).
+            - 인가: ADMIN""")
+    @Parameter(name = "reportId", description = "신고 PK", required = true, example = "1")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "승인 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "ADMIN 권한 아님"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "신고 없음(REPORT_001)")
+    })
     @PatchMapping("/{reportId}/approve")
     public ResponseEntity<ApiResponse<Void>> approveReport(
         @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -67,6 +101,15 @@ public class AdminReportController {
     }
 
     // 4. 신고 반려 (판정만 수행 — 대상은 건드리지 않음)
+    @Operation(summary = "신고 반려", description = """
+            신고를 반려 처리합니다. 판정만 수행하고 대상은 건드리지 않습니다.
+            - 인가: ADMIN""")
+    @Parameter(name = "reportId", description = "신고 PK", required = true, example = "1")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "반려 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "ADMIN 권한 아님"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "신고 없음(REPORT_001)")
+    })
     @PatchMapping("/{reportId}/reject")
     public ResponseEntity<ApiResponse<Void>> rejectReport(
         @AuthenticationPrincipal CustomUserDetails userDetails,
