@@ -1,5 +1,21 @@
 package com.paw.ddasoom.board.controller;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.paw.ddasoom.board.dto.request.PostCreateRequest;
 import com.paw.ddasoom.board.dto.request.PostUpdateRequest;
 import com.paw.ddasoom.board.dto.response.MyCommentResponse;
@@ -11,14 +27,10 @@ import com.paw.ddasoom.board.service.PostService;
 import com.paw.ddasoom.common.dto.ApiResponse;
 import com.paw.ddasoom.common.dto.PageResponse;
 import com.paw.ddasoom.common.security.CustomUserDetails;
+import com.paw.ddasoom.common.util.PageableSanitizer;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/posts")
@@ -37,8 +49,10 @@ public class PostController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam(name = "boardType", required = false) String boardType,
             @PageableDefault(size = 10) Pageable pageable) {
+        Pageable safePageable = PageableSanitizer.sanitize(pageable,
+                Sort.by(Sort.Direction.DESC, "createdAt"), "createdAt", "viewCount", "commentCount");
         PageResponse<MyPostResponse> response =
-                postService.getMyPosts(userDetails.getMemberId(), boardType, pageable);
+                postService.getMyPosts(userDetails.getMemberId(), boardType, safePageable);
         return ResponseEntity.ok(ApiResponse.success("내가 쓴 글 목록을 조회했습니다.", response));
     }
 
@@ -51,8 +65,11 @@ public class PostController {
     public ResponseEntity<ApiResponse<PageResponse<MyCommentResponse>>> getMyComments(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PageableDefault(size = 10) Pageable pageable) {
+        // 댓글은 정렬 기준이 작성 시각뿐 — 화이트리스트도 createdAt 하나
+        Pageable safePageable = PageableSanitizer.sanitize(pageable,
+                Sort.by(Sort.Direction.DESC, "createdAt"), "createdAt");
         PageResponse<MyCommentResponse> response =
-                postCommentService.getMyComments(userDetails.getMemberId(), pageable);
+                postCommentService.getMyComments(userDetails.getMemberId(), safePageable);
         return ResponseEntity.ok(ApiResponse.success("내가 쓴 댓글 목록을 조회했습니다.", response));
     }
 
@@ -63,8 +80,10 @@ public class PostController {
             @RequestParam(name = "category", required = false) String category,
             @RequestParam(name = "keyword", required = false) String keyword,
             @PageableDefault(size = 9) Pageable pageable) {
+        Pageable safePageable = PageableSanitizer.sanitize(pageable,
+                Sort.by(Sort.Direction.DESC, "createdAt"), "createdAt", "viewCount", "commentCount");
         PageResponse<PostResponse> response =
-                postService.getPostList(boardType, category, keyword, pageable);
+                postService.getPostList(boardType, category, keyword, safePageable);
         return ResponseEntity.ok(ApiResponse.success("게시글 목록을 조회했습니다.", response));
     }
 

@@ -2,7 +2,6 @@ package com.paw.ddasoom.member.controller;
 
 import java.util.List;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,6 +19,7 @@ import com.paw.ddasoom.auth.util.CookieUtil;
 import com.paw.ddasoom.common.dto.ApiResponse;
 import com.paw.ddasoom.common.dto.PageResponse;
 import com.paw.ddasoom.common.security.CustomUserDetails;
+import com.paw.ddasoom.common.util.PageableSanitizer;
 import com.paw.ddasoom.member.dto.request.MemberUpdateRequest;
 import com.paw.ddasoom.member.dto.request.PasswordChangeRequest;
 import com.paw.ddasoom.member.dto.request.SocialExtraInfoRequest;
@@ -103,7 +103,7 @@ public class MemberController {
           @RequestParam(name = "page", defaultValue = "0") int page,
           @RequestParam(name = "size", defaultValue = "20") int size) {
       return ResponseEntity.ok(ApiResponse.success(
-              memberService.getMyLoginLogs(userDetails.getMemberId(), PageRequest.of(page, size))));
+              memberService.getMyLoginLogs(userDetails.getMemberId(), PageableSanitizer.of(page, size))));
   }
 
 

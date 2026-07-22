@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.paw.ddasoom.common.dto.ApiResponse;
+import com.paw.ddasoom.common.security.CustomUserDetails;
 import com.paw.ddasoom.support.dto.request.FaqCreateRequest;
 import com.paw.ddasoom.support.dto.request.FaqUpdateRequest;
 import com.paw.ddasoom.support.dto.response.FaqResponse;
@@ -47,25 +49,28 @@ public class AdminFaqController {
   // 3. FAQ 등록
   @PostMapping
   public ResponseEntity<ApiResponse<FaqResponse>> createFaq(
-      @Valid @RequestBody FaqCreateRequest request) {
-    FaqResponse response = faqService.createFaq(request);
+          @AuthenticationPrincipal CustomUserDetails userDetails,
+          @Valid @RequestBody FaqCreateRequest request) {
+    FaqResponse response = faqService.createFaq(userDetails.getMemberId(), request);
     return ResponseEntity.status(HttpStatus.CREATED)
-        .body(ApiResponse.success("FAQ가 등록되었습니다.", response));
+            .body(ApiResponse.success("FAQ가 등록되었습니다.", response));
   }
 
   // 4. FAQ 전체 수정
   @PutMapping("/{faqId}")
   public ResponseEntity<ApiResponse<FaqResponse>> updateFaq(
-      @PathVariable("faqId") Long faqId,
-      @Valid @RequestBody FaqUpdateRequest request) {
-    return ResponseEntity.ok(ApiResponse.success(faqService.updateFaq(faqId, request)));
+          @AuthenticationPrincipal CustomUserDetails userDetails,
+          @PathVariable("faqId") Long faqId,
+          @Valid @RequestBody FaqUpdateRequest request) {
+    return ResponseEntity.ok(ApiResponse.success(
+            faqService.updateFaq(userDetails.getMemberId(), faqId, request)));
   }
 
   // 5. FAQ 노출 여부 변경
   @PatchMapping("/{faqId}/visibility")
   public ResponseEntity<ApiResponse<Void>> changeVisibility(
-      @PathVariable("faqId") Long faqId,
-      @RequestParam("isVisible") boolean isVisible) {
+          @PathVariable("faqId") Long faqId,
+          @RequestParam("isVisible") boolean isVisible) {
     faqService.changeVisibility(faqId, isVisible);
     return ResponseEntity.ok(ApiResponse.success("노출 여부가 변경되었습니다."));
   }

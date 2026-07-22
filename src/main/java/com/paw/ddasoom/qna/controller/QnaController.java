@@ -1,6 +1,7 @@
 package com.paw.ddasoom.qna.controller;
 
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.paw.ddasoom.common.dto.ApiResponse;
 import com.paw.ddasoom.common.dto.PageResponse;
 import com.paw.ddasoom.common.security.CustomUserDetails;
+import com.paw.ddasoom.common.util.PageableSanitizer;
 import com.paw.ddasoom.qna.dto.request.QnaCommentCreateRequest;
 import com.paw.ddasoom.qna.dto.request.QnaCreateRequest;
 import com.paw.ddasoom.qna.dto.response.QnaDetailResponse;
@@ -51,8 +53,10 @@ public class QnaController {
   public ResponseEntity<ApiResponse<PageResponse<QnaSummaryResponse>>> getMyQnas(
       @AuthenticationPrincipal CustomUserDetails userDetails,
       @PageableDefault(size = 10) Pageable pageable) {
+    Pageable safePageable = PageableSanitizer.sanitize(pageable,
+            Sort.by(Sort.Direction.DESC, "createdAt"), "createdAt", "answeredAt");
     return ResponseEntity.ok(
-        ApiResponse.success(qnaService.getMyQnas(userDetails.getMemberId(), pageable)));
+        ApiResponse.success(qnaService.getMyQnas(userDetails.getMemberId(), safePageable)));
   }
 
   // 3. 내 문의 상세 조회

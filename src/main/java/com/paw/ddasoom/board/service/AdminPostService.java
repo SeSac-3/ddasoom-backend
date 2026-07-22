@@ -48,7 +48,7 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>⚠️ {@link #forceDeletePost(Long)} / {@link #forceDeleteComment(Long)}는 신고 도메인이 재사용한다.
  * ReportService.hideTarget()의 POST / POST_COMMENT 분기가 이 두 메서드에 위임하도록 연결된다
- * (회원 제재를 adminMemberService.forceWithdraw에 위임하는 것과 대칭).
+ * (회원 제재를 adminMemberService.hideMember에 위임하는 것과 대칭).
  */
 @Service
 @RequiredArgsConstructor
@@ -151,7 +151,9 @@ public class AdminPostService {
 
         post.softDelete();
         // 소유자 삭제 시 이미지 일괄 정리 = 빈 리스트 sync (IMAGE_FLOW 3-6 패턴)
-        imageService.syncImages(List.of(), OwnerType.POST, postId);
+        // requesterId는 null — 빈 리스트라 attach가 조기 return하므로 업로더 검증 경로를 타지 않는다.
+        // (관리자/신고 경유 강제 삭제라 "요청자"가 업로더일 이유도 없다. ReportService도 이 메서드를 재사용)
+        imageService.syncImages(List.of(), OwnerType.POST, postId, null);
     }
 
     /**

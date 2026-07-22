@@ -114,6 +114,13 @@ public class AdminMemberService {
       }
 
       target.changeStatus(request.getStatus());
+
+      // 상태 전이에 맞춰 세션도 동기화 — DB와 Redis가 따로 노는 상태를 만들지 않는다.
+      if (request.getStatus() == MemberStatus.HIDDEN) {
+          blockSessions(targetMemberId);                        // 제재 → 즉시 차단
+      } else {
+          redisTokenService.clearForceLogout(targetMemberId);   // ACTIVE 복귀 → 차단 해제 (restore와 동일한 역연산)
+      }
       return AdminMemberResponse.from(target);
   }
 
@@ -137,5 +144,20 @@ public class AdminMemberService {
             throw new MemberException(MemberErrorCode.CANNOT_CHANGE_ADMIN_STATUS);
         }
         target.changeStatus(MemberStatus.HIDDEN);
+        blockSessions(targetMemberId);   // 신고 승인 제재도 관리자 수동 제재와 동일 강도로 세션 차단
     }
+
+    /**
+   * 제재(HIDDEN) 적용 시 세션까지 즉시 차단 — 탈퇴(withdraw)와 동일한 세트.
+   *
+   * <p>상태 컬럼만 바꾸면 ① 이미 로그인된 세션이 그대로 활동하고 ② RT 슬라이딩 갱신으로 사실상
+   * 무기한 유지되며 ③ 소셜 계정이면 새로 로그인까지 된다 — "제재가 로그인 폼 하나만 잠그는" 상태.
+   * 팀이 탈퇴에 대해 세운 "정지된 회원은 즉시 아무것도 할 수 없어야 한다"는 원칙을 제재에도 동일 적용한다.
+   * (기존 인프라 재사용이라 인증 요청당 Redis 조회 증분은 0 — 이미 지불 중인 비용)
+   */
+  private void blockSessions(Long memberId) {
+      redisTokenService.deleteRefreshTokens(memberId);   // 재발급 경로 차단(RT + grace)
+      // 기발급 AT 전부 즉시 무효화 — 다른 탭·기기 포함. TTL은 AT 최대 수명이면 충분(그 뒤엔 자연 만료)
+      redisTokenService.markForceLogout(memberId, jwtUtil.getAccessTokenValidityMillis());
+  }
 }

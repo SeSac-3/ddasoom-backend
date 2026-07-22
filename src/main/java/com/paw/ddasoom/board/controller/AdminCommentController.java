@@ -1,16 +1,18 @@
 package com.paw.ddasoom.board.controller;
 
-import com.paw.ddasoom.board.dto.response.AdminAllCommentResponse;
-import com.paw.ddasoom.board.service.AdminPostService;
-import com.paw.ddasoom.common.dto.ApiResponse;
-import com.paw.ddasoom.common.dto.PageResponse;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.paw.ddasoom.board.dto.response.AdminAllCommentResponse;
+import com.paw.ddasoom.board.service.AdminPostService;
+import com.paw.ddasoom.common.dto.ApiResponse;
+import com.paw.ddasoom.common.dto.PageResponse;
+import com.paw.ddasoom.common.util.PageableSanitizer;
+
+import lombok.RequiredArgsConstructor;
 
 /**
  * [관리자용 전체 댓글 관리 API]
@@ -41,7 +43,7 @@ public class AdminCommentController {
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "20") int size) {
         return ResponseEntity.ok(ApiResponse.success(
-                adminPostService.getAllComments(PageRequest.of(page, size))));
+                adminPostService.getAllComments(PageableSanitizer.of(page, size))));
     }
 
     

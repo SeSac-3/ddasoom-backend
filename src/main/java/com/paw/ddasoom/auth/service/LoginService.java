@@ -119,10 +119,13 @@ public class LoginService {
       Member member = memberRepository.findById(memberId)
               .orElseThrow(() -> new AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN));
 
-      // 탈퇴 회원 차단 — RT 삭제(부수효과)에 간접 의존하지 않는 심층 방어.
-      // withdraw가 RT를 지우므로 정상 경로에선 아래 대조에서 이미 걸러지지만,
-      // 여기서 명시적으로 막아 "탈퇴 회원에게 새 AT 발급"을 원천 차단한다.
-      if (member.isDeleted()) {
+      // 탈퇴·제재 회원 차단 — RT 삭제(부수효과)에 간접 의존하지 않는 심층 방어.
+      // 두 경로 모두 RT를 지우므로 정상 흐름에선 아래 대조에서 이미 걸러지지만,
+      // 여기서 명시적으로 막아 "활동 자격을 잃은 회원에게 새 AT 발급"을 원천 차단한다.
+      // ⚠️ 사유를 구분하지 않고 INVALID_REFRESH_TOKEN으로 뭉갠다 — reissue는 부트스트랩·인터셉터가
+      //    자동 호출하는 경로라 프론트가 "재로그인 유도" 하나로만 대응하면 되고,
+      //    사유 안내는 사용자가 의도적으로 시도하는 로그인 시점(AUTH_109/110)에 하는 것이 맞기 때문.
+      if (member.isDeleted() || member.getStatus() == MemberStatus.HIDDEN) {
           throw new AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN);
       }
 

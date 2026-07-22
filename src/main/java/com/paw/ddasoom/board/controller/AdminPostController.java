@@ -1,13 +1,5 @@
 package com.paw.ddasoom.board.controller;
 
-import com.paw.ddasoom.board.dto.response.AdminCommentResponse;
-import com.paw.ddasoom.board.dto.response.AdminPostDetailResponse;
-import com.paw.ddasoom.board.dto.response.AdminPostResponse;
-import com.paw.ddasoom.board.service.AdminPostService;
-import com.paw.ddasoom.common.dto.ApiResponse;
-import com.paw.ddasoom.common.dto.PageResponse;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +7,16 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.paw.ddasoom.board.dto.response.AdminCommentResponse;
+import com.paw.ddasoom.board.dto.response.AdminPostDetailResponse;
+import com.paw.ddasoom.board.dto.response.AdminPostResponse;
+import com.paw.ddasoom.board.service.AdminPostService;
+import com.paw.ddasoom.common.dto.ApiResponse;
+import com.paw.ddasoom.common.dto.PageResponse;
+import com.paw.ddasoom.common.util.PageableSanitizer;
+
+import lombok.RequiredArgsConstructor;
 
 /**
  * [관리자용 게시판 API]
@@ -42,7 +44,7 @@ public class AdminPostController {
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "10") int size) {
         return ResponseEntity.ok(ApiResponse.success(
-                adminPostService.getPosts(boardType, keyword, PageRequest.of(page, size))));
+                adminPostService.getPosts(boardType, keyword, PageableSanitizer.of(page, size))));
     }
 
     /** 게시글 상세 — 삭제 글도 조회 가능. 관리자 열람은 조회수를 올리지 않는다. */
@@ -59,7 +61,7 @@ public class AdminPostController {
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "20") int size) {
         return ResponseEntity.ok(ApiResponse.success(
-                adminPostService.getComments(postId, PageRequest.of(page, size))));
+                adminPostService.getComments(postId, PageableSanitizer.of(page, size))));
     }
 
     /** 게시글 강제삭제(soft delete) — 작성자 검증 없이 관리자 권한으로 수행. 이미 삭제 글이면 멱등 no-op. */

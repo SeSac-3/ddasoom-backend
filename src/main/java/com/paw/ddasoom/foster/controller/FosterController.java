@@ -1,6 +1,5 @@
 package com.paw.ddasoom.foster.controller;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.paw.ddasoom.common.dto.ApiResponse;
 import com.paw.ddasoom.common.dto.PageResponse;
 import com.paw.ddasoom.common.security.CustomUserDetails;
+import com.paw.ddasoom.common.util.PageableSanitizer;
 import com.paw.ddasoom.foster.domain.FosterStatus;
 import com.paw.ddasoom.foster.dto.request.FosterCreateRequest;
 import com.paw.ddasoom.foster.dto.request.FosterUpdateRequest;
@@ -199,7 +199,7 @@ public class FosterController {
     PageResponse<FosterUserListResponse> response = fosterService.getFosterList(
         userDetails.getMemberId(),
         status,
-        PageRequest.of(page, size)
+        PageableSanitizer.of(page, size)
     );
 
     return ResponseEntity.ok(ApiResponse.success(response));

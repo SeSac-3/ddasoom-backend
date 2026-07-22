@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.paw.ddasoom.auth.exception.AuthErrorCode;
 import com.paw.ddasoom.member.domain.Member;
 import com.paw.ddasoom.member.domain.MemberSocial;
+import com.paw.ddasoom.member.domain.MemberStatus;
 import com.paw.ddasoom.member.domain.Role;
 import com.paw.ddasoom.member.repository.MemberRepository;
 import com.paw.ddasoom.member.repository.MemberSocialRepository;
@@ -82,7 +83,7 @@ public static final String MEMBER_ID_KEY = "memberId";   // SuccessHandler가 �
       return memberSocialRepository
               .findByProviderAndProviderId(userInfo.getProvider(), userInfo.getProviderId())
               .map(MemberSocial::getMember)
-              .map(this::validateNotDeleted)
+              .map(this::validateLoginable)
               .orElseGet(() -> signupSocialMember(userInfo));
   }
 
@@ -112,12 +113,17 @@ public static final String MEMBER_ID_KEY = "memberId";   // SuccessHandler가 �
       return member;
   }
 
-  /** 탈퇴(soft delete) 회원의 소셜 로그인 차단 — 일반 로그인(LoginService)과 동일 방어.
-   *  단 소셜은 provider 본인 인증을 통과한 뒤라 탈퇴 사실을 안내해도 안전 → AUTH_109(전용 코드)로 구분 노출. */
-  private Member validateNotDeleted(Member member) {
+  /** 탈퇴·제재 회원의 소셜 로그인 차단 — 일반 로그인(LoginService)과 동일 방어.
+   *  소셜은 provider 본인 인증을 통과한 뒤라 사유를 안내해도 안전 → 전용 코드로 구분 노출.
+   *  (AUTH_109가 "provider 본인 인증 통과자에게만 보이는 응답이라 노출해도 안전"하다는 기존 논리를 AUTH_110에도 동일 적용) */
+  private Member validateLoginable(Member member) {
       if (member.isDeleted()) {
           throw new OAuth2AuthenticationException(
                   new OAuth2Error(AuthErrorCode.WITHDRAWN_MEMBER.getCode()));   // AUTH_109
+      }
+      if (member.getStatus() == MemberStatus.HIDDEN) {
+          throw new OAuth2AuthenticationException(
+                  new OAuth2Error(AuthErrorCode.BLOCKED_MEMBER.getCode()));     // AUTH_110
       }
       return member;
   }

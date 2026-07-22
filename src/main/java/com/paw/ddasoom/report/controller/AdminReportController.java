@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.paw.ddasoom.common.dto.ApiResponse;
 import com.paw.ddasoom.common.dto.PageResponse;
 import com.paw.ddasoom.common.security.CustomUserDetails;
+import com.paw.ddasoom.common.util.PageableSanitizer;
 import com.paw.ddasoom.report.domain.ReportStatus;
 import com.paw.ddasoom.report.domain.ReportTargetType;
 import com.paw.ddasoom.report.dto.response.ReportDetailResponse;
@@ -41,8 +42,11 @@ public class AdminReportController {
         @RequestParam(value = "status", required = false) ReportStatus status,
         @RequestParam(value = "targetType", required = false) ReportTargetType targetType,
         @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+      // @PageableDefault의 sort는 "기본값"일 뿐 클라이언트가 덮어쓸 수 있어 방어가 아니다 — 여기서 화이트리스트로 강제
+      Pageable safePageable = PageableSanitizer.sanitize(pageable,
+              Sort.by(Sort.Direction.DESC, "createdAt"), "createdAt", "processedAt");
       return ResponseEntity.ok(ApiResponse.success("신고 목록 조회 성공",
-          reportService.getReports(status, targetType, pageable)));
+          reportService.getReports(status, targetType, safePageable)));
     }
 
     // 2. 신고 상세 조회

@@ -35,6 +35,9 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>{@code comment_count}는 캐시 컬럼이라, 댓글 생성/삭제 시 {@link Post}의 카운트를 함께 갱신한다.</li>
  *   <li>댓글 조회/수정/삭제는 항상 {@code (commentId, postId)} 쌍으로 활성 댓글을 찾아, 다른 글의
  *       댓글이 잘못 조작되지 않게 한다.</li>
+ *   <li>댓글 생성/조회/수정/삭제는 모두 <b>원글이 활성(soft delete 전)</b>임을 전제로 한다 —
+ *       모든 진입점에서 {@code getActivePost()}를 먼저 호출한다. 유저 삭제든 신고 강제삭제든
+ *       숨겨진 글의 댓글이 계속 편집되는(=제재 우회) 경로를 막기 위함.</li>
  *   <li>삭제는 물리 삭제가 아닌 {@code softDelete}이며, 수정/삭제는 작성자 본인만 가능하다.</li>
  * </ul>
  */
@@ -44,7 +47,6 @@ public class PostCommentService {
 
     private final PostCommentRepository postCommentRepository;
     private final PostRepository postRepository;
-    private final MemberRepository memberRepository;
     private final MemberService memberService;
 
     /**
@@ -122,10 +124,12 @@ public class PostCommentService {
      * @param memberId  요청자 회원 PK (작성자 검증용)
      * @param request   댓글 수정 요청 (본문)
      * @return 수정된 댓글 응답
-     * @throws BoardException 댓글 없음(COMMENT_NOT_FOUND), 작성자 불일치(COMMENT_ACCESS_DENIED)
+     * @throws BoardException 원글 없음/삭제됨(POST_NOT_FOUND), 댓글 없음(COMMENT_NOT_FOUND),
+     *                        작성자 불일치(COMMENT_ACCESS_DENIED)
      */
     @Transactional
     public CommentResponse update(Long postId, Long commentId, Long memberId, CommentUpdateRequest request) {
+        getActivePost(postId);   // 원글이 삭제되었으면 댓글도 수정 불가 (POST_NOT_FOUND)
         PostComment comment = getActiveComment(commentId, postId);
         validateAuthor(comment, memberId);
 
@@ -141,16 +145,17 @@ public class PostCommentService {
      * @param postId    댓글이 속한 게시글 PK
      * @param commentId 삭제 대상 댓글 PK
      * @param memberId  요청자 회원 PK (작성자 검증용)
-     * @throws BoardException 댓글 없음(COMMENT_NOT_FOUND), 작성자 불일치(COMMENT_ACCESS_DENIED)
+     * @throws BoardException 원글 없음/삭제됨(POST_NOT_FOUND), 댓글 없음(COMMENT_NOT_FOUND),
+     *                        작성자 불일치(COMMENT_ACCESS_DENIED)
      */
     @Transactional
     public void delete(Long postId, Long commentId, Long memberId) {
+        Post post = getActivePost(postId);   // 원글이 삭제되었으면 댓글도 삭제 불가 (POST_NOT_FOUND)
         PostComment comment = getActiveComment(commentId, postId);
         validateAuthor(comment, memberId);
 
         comment.softDelete();
 
-        Post post = comment.getPost();
         post.decreaseCommentCount();
     }
 

@@ -1,6 +1,5 @@
 package com.paw.ddasoom.member.controller;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.paw.ddasoom.common.dto.ApiResponse;
 import com.paw.ddasoom.common.dto.PageResponse;
+import com.paw.ddasoom.common.util.PageableSanitizer;
 import com.paw.ddasoom.member.domain.Role;
 import com.paw.ddasoom.member.dto.request.MemberStatusUpdateRequest;
 import com.paw.ddasoom.member.dto.response.AdminMemberDetailResponse;
@@ -55,7 +55,7 @@ public class AdminMemberController {
             @RequestParam(name = "size", defaultValue = "10") int size) {
 
         return ResponseEntity.ok(ApiResponse.success(
-                adminMemberService.getMembers(keyword, role, PageRequest.of(page, size))));
+                adminMemberService.getMembers(keyword, role, PageableSanitizer.of(page, size))));
     }
 
     /** 회원 상세 — 기본정보 + 소셜 연동 + 최근 로그인 이력 5건 */
@@ -90,7 +90,7 @@ public class AdminMemberController {
             @RequestParam(name = "size", defaultValue = "20") int size) {
 
         return ResponseEntity.ok(ApiResponse.success(
-                adminMemberService.getLoginLogs(memberId, PageRequest.of(page, size))));
+                adminMemberService.getLoginLogs(memberId, PageableSanitizer.of(page, size))));
     }
 
     /** 강제 탈퇴 — ADMIN 계정(자기 자신 포함) 불가 */
