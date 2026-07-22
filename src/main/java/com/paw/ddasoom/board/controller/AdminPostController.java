@@ -1,5 +1,8 @@
 package com.paw.ddasoom.board.controller;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -41,10 +44,17 @@ public class AdminPostController {
     public ResponseEntity<ApiResponse<PageResponse<AdminPostResponse>>> getPosts(
             @RequestParam(name = "boardType", required = false) String boardType,
             @RequestParam(name = "keyword", required = false) String keyword,
-            @RequestParam(name = "page", defaultValue = "0") int page,
-            @RequestParam(name = "size", defaultValue = "10") int size) {
+            @PageableDefault(size = 20) Pageable pageable) {
+        // 정렬 화이트리스트 — 엔티티 경로로 지정한다.
+        //  · member.nickname : 작성자 정렬(루트 Post 기준 중첩 경로 → 암시적 조인으로 해석됨)
+        //  · deletedAt       : 화면의 "상태" 정렬. MySQL은 NULL을 가장 작게 보므로
+        //                      ASC = 활성(null) 먼저 → 삭제됨 나중, 즉 기존 파생 정렬(0/1)과 순서가 같다
+        Pageable safePageable = PageableSanitizer.sanitize(pageable,
+                Sort.by(Sort.Direction.DESC, "createdAt"),
+                "id", "title", "boardType", "category", "member.nickname",
+                "viewCount", "commentCount", "createdAt", "deletedAt");
         return ResponseEntity.ok(ApiResponse.success(
-                adminPostService.getPosts(boardType, keyword, PageableSanitizer.of(page, size))));
+                adminPostService.getPosts(boardType, keyword, safePageable)));
     }
 
     /** 게시글 상세 — 삭제 글도 조회 가능. 관리자 열람은 조회수를 올리지 않는다. */

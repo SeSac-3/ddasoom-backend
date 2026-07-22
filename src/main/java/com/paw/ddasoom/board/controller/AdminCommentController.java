@@ -49,8 +49,11 @@ public class AdminCommentController {
             @PageableDefault(size = 20) Pageable pageable) {
         // 이 화면은 정렬 UI가 없어 화이트리스트를 비워 기본 정렬(작성일 최신순)로 고정한다.
         // 나중에 정렬을 추가하면 허용 프로퍼티만 여기에 나열하면 된다.
+        // 정렬 화이트리스트 — 루트는 PostComment(c). 중첩 경로는 암시적 조인으로 해석된다.
         Pageable safePageable = PageableSanitizer.sanitize(pageable,
-                Sort.by(Sort.Direction.DESC, "createdAt"));
+                Sort.by(Sort.Direction.DESC, "createdAt"),
+                "id", "content", "member.nickname", "post.title", "post.boardType",
+                "createdAt", "deletedAt");
         return ResponseEntity.ok(ApiResponse.success(
                 adminPostService.getAllComments(boardType, keyword, safePageable)));
     }
