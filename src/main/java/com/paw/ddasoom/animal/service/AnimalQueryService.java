@@ -1,9 +1,11 @@
 package com.paw.ddasoom.animal.service;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -80,8 +82,7 @@ public class AnimalQueryService {
     Animal animal = animalRepository.findById(animalId)
       .orElseThrow(() -> new AnimalException(AnimalErrorCode.ANIMAL_NOT_FOUND));
 
-    boolean isLiked = memberId != null
-      && animalLikeRepository.existsByAnimal_IdAndMember_Id(animalId, memberId);
+    boolean isLiked = resolveLikedIds(List.of(animalId), memberId).contains(animalId);
 
     return AnimalDetailPageResponse.from(animal, isLiked);
   }
@@ -103,7 +104,45 @@ public class AnimalQueryService {
 
     Page<Animal> page = animalLikeRepository.findLikedAnimals(memberId, pageable);
 
-    return PageResponse.of(page, AnimalMyPageResponse::from);
+    Map<Long, Boolean> overrides = animalLikeService.getPendingLikeOverrides(memberId);
+
+    if (overrides.isEmpty()) {
+      return PageResponse.of(page, AnimalMyPageResponse::from);
+    }
+
+    List<Animal> content = new ArrayList<>(page.getContent());
+
+    // 방금 취소한 동물은 RDB에 아직 남아있어도 제외
+    content.removeIf(animal -> Boolean.FALSE.equals(overrides.get(animal.getId())));
+
+    // 방금 좋아요했지만 RDB엔 아직 없는 동물을 1페이지에 한해 맨 앞에 추가
+    if (pageable.getPageNumber() == 0) {
+      Set<Long> existingIds = content.stream().map(Animal::getId).collect(Collectors.toSet());
+      List<Long> newlyLikedIds = overrides.entrySet().stream()
+        .filter(Map.Entry::getValue)
+        .map(Map.Entry::getKey)
+        .filter(id -> !existingIds.contains(id))
+        .toList();
+      if (!newlyLikedIds.isEmpty()) {
+        content.addAll(0, animalRepository.findAllById(newlyLikedIds));
+      }
+    }
+
+    List<AnimalMyPageResponse> responses = content.stream()
+      .map(AnimalMyPageResponse::from)
+      .toList();
+
+    // totalElements 등은 RDB 기준 근사치 — Write-Behind eventual-consistency 하에서 pending분까지
+    // 정확히 반영한 총 카운트는 다음 flush 이후에나 정확해진다(다른 도메인 카운트와 동일한 트레이드오프).
+    return PageResponse.<AnimalMyPageResponse>builder()
+      .content(responses)
+      .page(page.getNumber())
+      .size(page.getSize())
+      .totalElements(page.getTotalElements())
+      .totalPages(page.getTotalPages())
+      .hasNext(page.hasNext())
+      .hasPrevious(page.hasPrevious())
+      .build();
   }
 
   // "좋아요만" 필터에서 결과가 없는 경우(비로그인/좋아요 0건)의 빈 페이지.
@@ -133,6 +172,7 @@ public class AnimalQueryService {
     return likedIds;
   }
 
+  // "좋아요만" 필터용 — 대상 animalId를 미리 알 수 없어 전체 스캔 오버레이를 사용한다.
   private Set<Long> resolveEffectiveLikedIds(Long memberId) {
 
     Set<Long> likedIds = new HashSet<>(animalLikeRepository.findAllLikedAnimalIds(memberId));

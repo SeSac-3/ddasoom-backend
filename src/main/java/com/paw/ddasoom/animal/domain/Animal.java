@@ -2,7 +2,6 @@ package com.paw.ddasoom.animal.domain;
 
 import java.time.LocalDateTime;
 
-import org.apache.commons.lang3.StringUtils;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -95,35 +94,7 @@ public class Animal extends BaseTimeEntity {
   @Column(name = "rescued_at", columnDefinition = "DATETIME(6)")
   private LocalDateTime rescuedAt; // 서비스 로직에서 명시적 세팅, 자동화 금지
 
-  // Animal.java에 추가할 비즈니스 메서드
-
-  // 1. API 동기화 배치 전용 — likeCount/isFostered/deletedAt은 건드리지 않음
-  public void updateFromApi(
-    String kind,
-    String gender,
-    String typeName,
-    String age,
-    String location,
-    String weight,
-    String color,
-    String specialMark,
-    String vaccinationChk,
-    String imageUrl,
-    LocalDateTime rescuedAt) {
-    this.kind = AnimalKind.from(kind);
-    this.gender = AnimalGender.from(gender);
-    this.typeName = typeName;
-    this.age = age;
-    this.location = location;
-    this.weight = weight;
-    this.color = color;
-    this.specialMark = StringUtils.defaultIfBlank(specialMark, "없음");
-    this.vaccinationChk = StringUtils.defaultIfBlank(vaccinationChk, "접종 안함");
-    this.imageUrl = imageUrl;
-    this.rescuedAt = rescuedAt;
-  }
-
-  // 2. foster 도메인 전용 — 다른 필드는 건드리지 않음
+  // 비즈니스 메서드: foster 도메인 전용 — 다른 필드는 건드리지 않음
   public void updateFosteredStatus(boolean isFostered) {
     this.isFostered = isFostered;
   }

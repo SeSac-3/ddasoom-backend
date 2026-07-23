@@ -16,6 +16,11 @@ import com.paw.ddasoom.common.dto.ApiResponse;
 import com.paw.ddasoom.common.dto.PageResponse;
 import com.paw.ddasoom.common.util.PageableSanitizer;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -34,6 +39,8 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/admin/comments")
 @RequiredArgsConstructor
+@Tag(name = "전체 댓글 관리(Admin Comment)", description = "관리자 — 사이트 전체 댓글 통합 목록 API")
+@SecurityRequirement(name = "bearerAuth")   // /api/admin/** 는 SecurityConfig가 URL 레벨에서 ADMIN 잠금
 public class AdminCommentController {
 
     private final AdminPostService adminPostService;
@@ -42,6 +49,22 @@ public class AdminCommentController {
      * 전체 댓글 목록 — 전 게시글 통합, 삭제 댓글 포함, 최신순. 원글 컨텍스트(postId/제목/보드타입) 포함.
      * (데모 규모라 프론트가 전체 1회 로드 후 클라이언트에서 검색/필터/정렬/페이징 — AdminPostList와 동일)
      */
+    @Operation(summary = "전체 댓글 목록 조회(관리자)", description = """
+            전 게시글의 댓글을 통합 조회합니다. 삭제된 댓글도 포함되며 최신순입니다.
+            각 항목에 원글 컨텍스트(postId/제목/보드타입)가 포함됩니다.
+            강제삭제는 DELETE /api/admin/posts/{postId}/comments/{commentId} 를 재사용합니다.
+            - 인가: ADMIN""")
+    @Parameter(name = "boardType", description = "보드 타입 필터(선택). 미전달 시 전체 보드",
+            example = "ADOPTION_REVIEW")
+    @Parameter(name = "keyword", description = "검색어(선택)", example = "감사")
+    @Parameter(name = "sort", description = "정렬 허용 필드: createdAt(기본, DESC) / id / content "
+            + "/ member.nickname / post.title / post.boardType / deletedAt", example = "createdAt,desc")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "허용되지 않은 boardType 값(INVALID_INPUT — enum 직접 바인딩이라 BOARD_003이 아님)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "관리자 권한 필요")
+    })
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<AdminAllCommentResponse>>> getComments(
             @RequestParam(name = "boardType", required = false) BoardType boardType,
@@ -58,5 +81,5 @@ public class AdminCommentController {
                 adminPostService.getAllComments(boardType, keyword, safePageable)));
     }
 
-    
+
 }
